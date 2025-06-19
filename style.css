@@ -1,0 +1,70 @@
+/* Portrait layout for Maze Tap Shooter */
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #000;
+  color: #fff;
+  font-family: sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  color: #fff;
+  font-size: 1rem;
+  z-index: 10;
+}
+
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  margin-left: -15px;
+  margin-top: -15px;
+  border: 2px solid white;
+  border-radius: 50%;
+  z-index: 9;
+}
+
+#controls {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  z-index: 10;
+}
+
+#controls button {
+  font-size: 2rem;
+  padding: 10px 20px;
+  background: #222;
+  color: white;
+  border: 2px solid white;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+#scoreboard {
+  display: flex;
+  gap: 15px;
+  font-size: 1rem;
+  align-items: center;
+}

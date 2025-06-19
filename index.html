@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maze Tap Shooter</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="hud">
+    <div id="crosshair"></div>
+    <div id="scoreboard">
+      <div>Score: <span id="score">0</span></div>
+      <div>Ammo: <span id="ammo">15</span></div>
+      <div>Penalties: <span id="penalties">0</span></div>
+    </div>
+    <div id="controls">
+      <button id="left">⬅️</button>
+      <button id="forward">⬆️</button>
+      <button id="right">➡️</button>
+    </div>
+  </div>
+  <script type="module" src="maze.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
