@@ -17,4 +17,3 @@ body { margin: 0; background: black; color: white; font-family: 'Orbitron', Aria
 #controls button:active { background: white; color: black; }
 
 #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; border: 2px solid white; border-radius: 50%; z-index: 5; box-shadow: 0 0 10px white; }
-
