@@ -1,20 +1,21 @@
-body { margin: 0; background: black; color: white; font-family: 'Orbitron', Arial, sans-serif; overflow: hidden; touch-action: manipulation; }
-
-#hud { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; font-size: 1.2em; z-index: 10; }
-
-#hud span { margin: 0 10px; }
-
-#score { color: limegreen; }
-
-#ammo { color: mediumorchid; }
-
-#penalties { color: crimson; }
-
-#controls { position: absolute; bottom: 20px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; z-index: 10; }
-
-#controls button { background: #222; color: white; border: 2px solid white; border-radius: 10px; padding: 15px 25px; font-size: 1.2em; font-weight: bold; cursor: pointer; }
-
-#controls button:active { background: white; color: black; }
-
-#crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; border: 2px solid white; border-radius: 50%; z-index: 5; box-shadow: 0 0 10px white; }
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Target Lane Shooter</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="hud">
+    <span>Score: <span id="score">0</span></span>
+    <span>Ammo: <span id="ammo">15</span></span>
+    <span>Penalties: <span id="penalties">0</span></span>
+  </div>
+  <div id="crosshair"></div>
+  <div id="controls">
+    <button id="reload">Reload</button>
+  </div>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
