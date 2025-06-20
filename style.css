@@ -8,7 +8,7 @@ body { margin: 0; background: black; color: white; font-family: 'Orbitron', Aria
 
 #ammo { color: mediumorchid; }
 
-#penalties { color: crimson; }
+#misses { color: crimson; }
 
 #controls { position: absolute; bottom: 20px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; z-index: 10; }
 

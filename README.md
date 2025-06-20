@@ -1,6 +1,6 @@
-# Maze Tap Shooter
+# Target Lane Shooter
 
-A simple Three.js experiment where you shoot the walls of a randomly generated maze.
+A simple Three.js obstacle lane where you shoot enemy targets while avoiding civilians.
 
 ## Installation
 
@@ -27,5 +27,4 @@ Then open `http://localhost:8000/` in your browser. The game should start automa
 
 - `index.html` – main HTML page.
 - `style.css` – HUD layout and basic styling.
-- `maze.js` – maze generation logic.
 - `main.js` – game setup and interactions using Three.js.
