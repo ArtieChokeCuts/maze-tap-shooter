@@ -89,8 +89,6 @@
       text-shadow: 0 0 10px #00ffcc;
     }
     
-    /* Default #instructions style (now applies wherever it is, if visible) */
-    /* If you never want to show instructions, you can remove this whole block or set display:none */
     #instructions { 
       position:absolute; 
       bottom:20px; 
@@ -101,8 +99,8 @@
       max-width:500px; 
       padding:0 20px;
       line-height: 1.6;
-      display: none; /* Hide instructions by default globally */
-      z-index: 5; /* Ensure it's above canvas but below modals if shown */
+      display: none; 
+      z-index: 5; 
     }
     #instructions p { 
       margin-top: 0.5em; 
@@ -213,13 +211,13 @@
       }
 
       #start-screen h1 { 
-        font-size: 2.2rem; /* Adjusted for mobile */
+        font-size: 2.2rem; 
         margin-bottom: 2rem; 
         line-height: 1.25; 
         text-align: center; 
       }
 
-      #start-button, #restart-button { /* General mobile button styling */
+      #start-button, #restart-button { 
         padding: 12px 30px; 
         font-size: 1.1rem;  
         margin: 1rem 0;     
@@ -229,15 +227,8 @@
         margin-top: 0; 
         margin-bottom: 1rem; 
       }
-
-      /* This rule for #instructions is for when it's NOT part of #start-screen.
-         If #instructions is globally hidden (display: none; in its main rule), 
-         you'd need JS to show it, and then this rule would position it.
-         Since it's globally hidden now, this rule just defines its position IF shown. */
+      
       #instructions { 
-         /* position: absolute; is already in global style */
-         /* bottom: 120px; is already in global style if we want that behavior */
-         /* For mobile, if you want it to appear above mobile controls if shown: */
          bottom: 120px; 
       }
     }
@@ -262,13 +253,8 @@
   <div id="start-screen">
     <h1>EXPLOSIVE TARGET SHOOTER</h1>
     <button id="start-button">START MISSION</button>
-    <!-- Instructions div is NO LONGER INSIDE start-screen -->
   </div>
 
-  <!-- Instructions div moved here, outside of start-screen. 
-       It will be hidden by default due to CSS display:none. 
-       If you want to show it (e.g., on desktop, or via a help button), 
-       you'll need to change its display property. -->
   <div id="instructions">
     <p>DRAG or A/D KEYS to Strafe</p>
     <p>TAP SCREEN to Shoot | DOUBLE-CLICK to Reload</p>
@@ -298,13 +284,14 @@
   <canvas id="hud"></canvas>
 
   <script>
+  let scene, camera, renderer, ctx; 
   let targets = [];
   let projectiles = [];
   let explosions = [];
   let gameRunningGlobal = false; 
   let animateLights = () => {}; 
+  let textureLoader; 
 
-  // --- AUDIO ASSETS ---
   const shootSound = new Audio('laser.mp3'); 
   shootSound.volume = 0.5; 
   const explosionSound = new Audio('explosion.mp3'); 
@@ -312,60 +299,13 @@
   const backgroundMusic = new Audio('backgroundmusic.mp3'); 
   backgroundMusic.loop = true; 
   backgroundMusic.volume = 0.3; 
-  // --- END AUDIO ASSETS ---
-
-  function generateEnemySpriteSheet() {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const cols = 8; 
-    const frameWidth = 256; 
-    const frameHeight = 256;
-    
-    canvas.width = frameWidth * cols;
-    canvas.height = frameHeight;
-    
-    const gradient = ctx.createRadialGradient(
-      frameWidth/2, frameHeight/2, frameWidth/4,
-      frameWidth/2, frameHeight/2, frameWidth/2.5
-    );
-    gradient.addColorStop(0, 'rgba(255,50,50,0.8)');
-    gradient.addColorStop(0.7, 'rgba(200,0,0,0.5)');
-    gradient.addColorStop(1, 'rgba(100,0,0,0)');
-
-    for (let i = 0; i < cols; i++) {
-      const x = i * frameWidth;
-      const pulse = Math.sin(i/cols * Math.PI * 2) * 0.3 + 0.7; 
-      
-      ctx.fillStyle = gradient; 
-      ctx.beginPath();
-      ctx.arc(x + frameWidth/2, frameHeight/2, frameWidth/2.5, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.fillStyle = `rgba(255,${50*pulse},${50*pulse},0.9)`; 
-      ctx.beginPath();
-      ctx.arc(x + frameWidth/2, frameHeight/2, frameWidth/3 * pulse, 0, Math.PI * 2);
-      ctx.fill();
-      
-      const coreGrad = ctx.createRadialGradient(
-        x + frameWidth/2, frameHeight/2, 0,
-        x + frameWidth/2, frameHeight/2, frameWidth/6
-      );
-      coreGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
-      coreGrad.addColorStop(1, 'rgba(200,200,255,0.5)');
-      
-      ctx.fillStyle = coreGrad; 
-      ctx.beginPath();
-      ctx.arc(x + frameWidth/2, frameHeight/2, frameWidth/6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    return canvas.toDataURL('image/png');
-  }
   
   function createExplosion(x, y, z) {
+    if (!scene) { console.error("Scene not ready for explosion"); return null; }
     explosionSound.currentTime = 0;
     explosionSound.play().catch(e => console.warn("Error playing explosion sound:", e));
 
-    const explosion = {
+    const explosionData = {
       particles: [], position: new THREE.Vector3(x, y, z), timer: 30, active: true
     };
     const colors = [0xff0000, 0xff6600, 0xffff00, 0xffffff];
@@ -380,27 +320,30 @@
         velocity: new THREE.Vector3((Math.random() - 0.5), (Math.random() - 0.5), (Math.random() - 0.5))
                   .normalize().multiplyScalar(Math.random() * 0.15 + 0.05),
       };
-      explosion.particles.push(particle);
+      explosionData.particles.push(particle);
+      scene.add(particle); 
     }
-    return explosion;
+    explosions.push(explosionData); 
+    return explosionData;
   }
 
   function handleOrientation() {
     const orientationWarningEl = document.getElementById('orientation-warning');
-    if (!orientationWarningEl) return;
+    if (!orientationWarningEl) return; 
     const isPortrait = window.innerHeight > window.innerWidth;
     
     if (isPortrait) {
       orientationWarningEl.style.display = 'flex';
-      if (gameRunningGlobal && !backgroundMusic.paused) { 
+      if (gameRunningGlobal && backgroundMusic && !backgroundMusic.paused) { 
           backgroundMusic.pause();
       }
       gameRunningGlobal = false; 
     } else { 
       orientationWarningEl.style.display = 'none';
-      if (!gameRunningGlobal && window.renderer && !document.getElementById('start-screen').style.display.includes('flex')) {
+      const startScreenEl = document.getElementById('start-screen'); 
+      if (!gameRunningGlobal && window.renderer && startScreenEl && !startScreenEl.style.display.includes('flex')) {
          gameRunningGlobal = true;
-         if (backgroundMusic.paused) { 
+         if (backgroundMusic && backgroundMusic.paused) { 
             backgroundMusic.play().catch(e => console.warn("Error resuming background music:", e));
          }
       }
@@ -408,20 +351,13 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    const loading   = document.getElementById('loading');
-    const progress  = document.getElementById('progress');
-    const loadingText = document.getElementById('loading-text'); 
+    const loadingEl   = document.getElementById('loading'); 
+    const progressEl  = document.getElementById('progress'); 
+    const loadingTextEl = document.getElementById('loading-text'); 
     const startScr  = document.getElementById('start-screen');
     const gameOver  = document.getElementById('game-over');
     const startBtn  = document.getElementById('start-button');
     const restartBtn= document.getElementById('restart-button');
-
-    // If you want instructions visible on desktop but not mobile start screen:
-    // const instructionsDiv = document.getElementById('instructions');
-    // if (window.innerWidth > 768) { // Or a more robust check for non-touch device
-    //    if(instructionsDiv) instructionsDiv.style.display = 'block'; // Or 'flex' if it's a flex container
-    // }
-
 
     const startFullscreen = () => {
       const elem = document.documentElement;
@@ -434,27 +370,31 @@
       }
     };
 
+    if (!loadingEl || !progressEl || !loadingTextEl) {
+        console.error("Critical loading screen elements (loading, progress, or loading-text) are missing from the DOM! Bypassing loading animation.");
+        if(loadingEl) loadingEl.style.display = 'none';
+        if(startScr) startScr.style.display = 'flex';
+        return; 
+    }
+
     let p=0, iv = setInterval(()=>{
       p += Math.random()*12;
-      if (loadingText) loadingText.textContent = `LOADING ASSETS... ${Math.min(100, Math.round(p))}%`;
+      loadingTextEl.textContent = `LOADING ASSETS... ${Math.min(100, Math.round(p))}%`;
       if(p>=100){ p=100; clearInterval(iv);
         setTimeout(()=>{
-          loading.style.opacity='0';
+          loadingEl.style.opacity='0'; 
           setTimeout(()=>{
-            loading.style.display='none';
+            loadingEl.style.display='none';
             if (startScr) startScr.style.display='flex'; 
           },600); 
         },300);
       }
-      if (progress) progress.style.width = Math.min(100,p)+'%'; 
+      progressEl.style.width = Math.min(100,p)+'%';
     },150); 
 
     if (startBtn) {
         startBtn.onclick = () => {
           if (startScr) startScr.style.display = 'none';
-          // If you wanted to show instructions during game on desktop:
-          // const instructionsDiv = document.getElementById('instructions');
-          // if (instructionsDiv && window.innerWidth > 768) instructionsDiv.style.display = 'block';
           startFullscreen();
           setTimeout(initGame, 100); 
         };
@@ -462,8 +402,6 @@
     if (restartBtn) {
         restartBtn.onclick = ()=>{ 
             if (gameOver) gameOver.style.display='none'; 
-            // const instructionsDiv = document.getElementById('instructions');
-            // if (instructionsDiv && window.innerWidth > 768) instructionsDiv.style.display = 'block'; // Show again if on desktop
             initGame(); 
         }
     }
@@ -472,42 +410,106 @@
         const finalScoreEl = document.getElementById('final-score');
         if (finalScoreEl) finalScoreEl.textContent = `SCORE: ${window.finalScore || 0}`;
         if (gameOver) gameOver.style.display='flex';
-        // const instructionsDiv = document.getElementById('instructions');
-        // if(instructionsDiv) instructionsDiv.style.display = 'none'; // Hide instructions on game over screen
     };
 
-    handleOrientation();
+    handleOrientation(); 
     window.addEventListener('resize', handleOrientation);
     window.addEventListener('orientationchange', handleOrientation);
   });
 
+  function createTarget(isEnemy) {
+      if (!scene || !textureLoader) { 
+          console.error("[createTarget] ERROR: scene or textureLoader not initialized!");
+          return null;
+      }
+
+      if (!isEnemy) { // POWER-UP
+          const laneXPowerUp = (Math.floor(Math.random() * 3) - 1) * 6;
+          const zPosPowerUp = -(Math.random() * 40 + 60);
+          const geometry = new THREE.CylinderGeometry(1, 1, 2, 24);
+          const material = new THREE.MeshPhongMaterial({
+              color: 0x00ff00, emissive: 0x003300, shininess: 80, transparent: true, opacity: 0.7
+          });
+          const powerUpMesh = new THREE.Mesh(geometry, material);
+          powerUpMesh.position.set(laneXPowerUp, 1, zPosPowerUp);
+          powerUpMesh.userData = { type: 'powerup', hit: false, timer: 0 };
+          scene.add(powerUpMesh); targets.push(powerUpMesh);
+          return powerUpMesh;
+      } else { // ENEMY PLANE
+          console.log("[DEBUG] createTarget: Attempting to create ENEMY PLANE with texture 'enemy1.png'.");
+
+          const planeWidth = 2.0;  // <<< ADJUST THIS for your 256x256 enemy1.png >>>
+          const planeHeight = 2.0; // <<< ADJUST THIS (keep same as width for square texture) >>>
+
+          const enemyGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+          const enemyMaterial = new THREE.MeshBasicMaterial({
+              // map will be set by texture loader's onLoad callback
+              transparent: true,    
+              alphaTest: 0.1,       
+              side: THREE.DoubleSide,
+              color: 0xff00ff // Magenta fallback color
+          });
+
+          textureLoader.load(
+              'enemy1.png', 
+              function onLoad(loadedTexture) { 
+                  console.log("[SUCCESS] enemy1.png texture LOADED for enemy plane!", loadedTexture);
+                  enemyMaterial.map = loadedTexture;
+                  enemyMaterial.color.set(0xffffff); // Reset color to white to show texture purely
+                  enemyMaterial.needsUpdate = true;  
+              },
+              undefined, 
+              function onError(err) { 
+                  console.error("[CRITICAL FAILURE] enemy1.png texture FAILED to load. Check path/file. Using fallback color.", err);
+              }
+          );
+          
+          const enemyPlane = new THREE.Mesh(enemyGeometry, enemyMaterial);
+          
+          if (targets.filter(t => t.userData.type === 'enemy').length === 0) { 
+            enemyPlane.position.set(0, 1.5, -20); 
+            console.log("[DEBUG] First enemy plane spawned at TEST position (0, 1.5, -20).");
+          } else {
+            const regularLaneX = (Math.floor(Math.random() * 3) - 1) * 6;
+            const regularZPos = -(Math.random() * 40 + 60);
+            enemyPlane.position.set(regularLaneX, 1.5, regularZPos);
+          }
+
+          enemyPlane.userData = {
+              type: 'enemy',
+              hit: false,
+              timer: 0,
+              isBillboard: true 
+          };
+
+          scene.add(enemyPlane);
+          targets.push(enemyPlane);
+          console.log("[DEBUG] Enemy PLANE added to scene. World Size:", planeWidth, "x", planeHeight);
+          return enemyPlane;
+      }
+  }
 
   function initGame(){
-    let scene = new THREE.Scene();
+    console.log("[DEBUG] initGame started.");
+    scene = new THREE.Scene(); 
+    textureLoader = new THREE.TextureLoader();
 
-    if (backgroundMusic.paused) {
+    if (backgroundMusic && backgroundMusic.paused) {
         backgroundMusic.play().catch(e => console.warn("Error playing background music:", e));
     }
 
     function createTunnel() {
       const tunnelGeometry = new THREE.CylinderGeometry(50, 50, 300, 64, 1, true);
-      const tunnelTextureLoader = new THREE.TextureLoader(); 
-      const tunnelTexture = tunnelTextureLoader.load('tunnel_texture.jpg', 
-        undefined, 
-        undefined, 
-        (err) => { console.warn("Tunnel texture not found or failed to load. Ensure 'tunnel_texture.jpg' is present.", err)}
-      );
-      tunnelTexture.wrapS = THREE.RepeatWrapping;
-      tunnelTexture.wrapT = THREE.RepeatWrapping;
-      tunnelTexture.repeat.set(8, 1);
-      
-      const tunnelMaterial = new THREE.MeshPhongMaterial({
-        map: tunnelTexture, transparent: true, opacity: 0.8, side: THREE.BackSide,
-        specular: 0x222222, shininess: 30
+      const tunnelMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x222255, 
+        transparent: true, 
+        opacity: 0.6,     
+        side: THREE.BackSide,
+        specular: 0x111111, 
+        shininess: 20
       });
-      
       const tunnelMesh = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
-      tunnelMesh.position.z = -150;
+      tunnelMesh.position.z = -150; 
       scene.add(tunnelMesh);
 
       const light1 = new THREE.PointLight(0x0066ff, 2, 100);
@@ -523,14 +525,15 @@
       };
     }
 
-
     if(window.renderer){ 
       cancelAnimationFrame(window.animId);
       if (window.renderer.domElement.parentNode) document.body.removeChild(window.renderer.domElement);
       targets.forEach(t => { 
-          if (t.userData && t.userData.animInterval) { clearInterval(t.userData.animInterval); t.userData.animInterval = null; }
-          if (t.geometry) t.geometry.dispose();
-          if (t.material) { if (t.material.map) t.material.map.dispose(); t.material.dispose(); }
+          if (t.geometry) t.geometry.dispose(); 
+          if (t.material) { 
+              if (t.material.map) t.material.map.dispose(); 
+              t.material.dispose(); 
+          }
       });
       projectiles.forEach(p => {
           if (p.geometry) p.geometry.dispose(); if (p.material) p.material.dispose();
@@ -547,37 +550,32 @@
     gameRunningGlobal = true; 
 
     scene.background = new THREE.Color(0x111133);
-    scene.fog = new THREE.FogExp2(0x111133, 0.02);
+    // scene.fog = new THREE.FogExp2(0x111133, 0.02); // Fog disabled for testing
+    console.log("[DEBUG] Scene fog is currently disabled for testing.");
 
-    const camera   = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+    camera   = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
     camera.position.set(0,2,5);
+    camera.lookAt(0, 1.5, -20); 
+    console.log("[DEBUG] Camera forced to lookAt (0, 1.5, -20)");
     window.camera = camera; 
 
-    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha: true });
+    renderer = new THREE.WebGLRenderer({ antialias:true, alpha: true });
     renderer.setSize(innerWidth, innerHeight);
     renderer.domElement.classList.add('webgl');
     document.body.appendChild(renderer.domElement);
     window.renderer = renderer; 
 
     const hudCanvas = document.getElementById('hud');
+    if (!hudCanvas) { console.error("HUD canvas not found!"); return; } 
     hudCanvas.width  = innerWidth;
     hudCanvas.height = innerHeight;
-    const ctx = hudCanvas.getContext('2d');
+    ctx = hudCanvas.getContext('2d');
     
-    let health = 100, score = 0, penalties = 0;
-    let ammo = 15, maxAmmo = 15;
-    let lane = 0; 
-    let lastSpawnTime = 0, spawnInterval = 2000;
-    let difficulty = 1;
-    let combo = 0, lastHitTime = 0;
-    let level = 1, scoreToNextLevel = 100;
-    let levelUpDisplayTime = 0;
-    let comboDisplayTime = 0;
+    let health = 100, score = 0, penalties = 0, ammo = 15, maxAmmo = 15, lane = 0;
+    let lastSpawnTime = 0, spawnInterval = 3000, difficulty = 1, combo = 0, lastHitTime = 0;
+    let level = 1, scoreToNextLevel = 100, levelUpDisplayTime = 0, comboDisplayTime = 0;
 
-    const textureLoader = new THREE.TextureLoader();
-    const enemySpriteSheetDataUrl = generateEnemySpriteSheet();
-
-    scene.add(new THREE.AmbientLight(0x404040, 1.2));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8)); 
     const d1 = new THREE.DirectionalLight(0xffffff, 1);
     d1.position.set(5,10,5); scene.add(d1);
     
@@ -591,72 +589,8 @@
     
     animateLights = createTunnel(); 
     
-    function createTarget(isEnemy) { 
-      const laneX = (Math.floor(Math.random() * 3) - 1) * 6;
-      const zPos = -(Math.random() * 40 + 60);
-    
-      if (!isEnemy) { 
-        const geometry = new THREE.CylinderGeometry(1, 1, 2, 24);
-        const material = new THREE.MeshPhongMaterial({
-          color: 0x00ff00, emissive: 0x003300, shininess: 80, transparent: true, opacity: 0.7
-        });
-        const powerUpMesh = new THREE.Mesh(geometry, material);
-        powerUpMesh.position.set(laneX, 1, zPos);
-        powerUpMesh.userData = { type: 'powerup', hit: false, timer: 0 };
-        scene.add(powerUpMesh); targets.push(powerUpMesh);
-        return powerUpMesh;
-      } else { 
-        const geometry = new THREE.CylinderGeometry(1, 1, 3, 32, 1, true); 
-        const enemyMaterial = new THREE.MeshBasicMaterial({
-          transparent: true, opacity: 1.0, side: THREE.DoubleSide, depthWrite: true 
-        });
-        const enemyMesh = new THREE.Mesh(geometry, enemyMaterial);
-        enemyMesh.position.set(laneX, 1.5, zPos);
-        enemyMesh.userData = { type: 'enemy', hit: false, timer: 0, animInterval: null }; 
-        
-        textureLoader.load( enemySpriteSheetDataUrl,
-            function ( loadedRootTexture ) {
-                const textureForThisEnemy = loadedRootTexture.clone();
-                textureForThisEnemy.needsUpdate = true;
-                const COLS = 8; 
-                const uW = 1 / COLS;
-                let currentFrame = Math.floor(Math.random() * COLS);
-                textureForThisEnemy.repeat.set(uW, 1);
-                textureForThisEnemy.offset.set(currentFrame * uW, 0);
-                textureForThisEnemy.wrapS = THREE.ClampToEdgeWrapping;
-                textureForThisEnemy.wrapT = THREE.ClampToEdgeWrapping;
-        
-                if (enemyMesh.material) {
-                    enemyMesh.material.map = textureForThisEnemy;
-                    enemyMesh.material.needsUpdate = true;
-                    const animSpeed = 120; 
-                    const iv = setInterval(() => {
-                        if (!enemyMesh || !enemyMesh.material || !enemyMesh.material.map || enemyMesh.userData.hit) {
-                            clearInterval(iv);
-                            if (enemyMesh.userData) enemyMesh.userData.animInterval = null;
-                            return;
-                        }
-                        currentFrame = (currentFrame + 1) % COLS;
-                        textureForThisEnemy.offset.x = currentFrame * uW;
-                    }, animSpeed);
-                    enemyMesh.userData.animInterval = iv;
-                } else { textureForThisEnemy.dispose(); }
-            },
-            undefined,
-            function ( err ) {
-                console.error( 'ERROR LOADING ENEMY TEXTURE:', err );
-                if (enemyMesh.material) {
-                    enemyMesh.material.map = null; enemyMesh.material.color.set(0xcc0000);
-                    enemyMesh.material.needsUpdate = true;
-                }
-            }
-        );
-        scene.add(enemyMesh); targets.push(enemyMesh);
-        return enemyMesh;
-      }
-    }
-
     function createProjectile() { 
+        if(!scene || !camera) return null;
         const geometry = new THREE.SphereGeometry(0.2, 8, 8);
         const material = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.9 });
         const projectile = new THREE.Mesh(geometry, material);
@@ -668,9 +602,19 @@
     }
 
     function trySpawnTarget(now){ 
-        if(now - lastSpawnTime > spawnInterval){
-            createTarget(Math.random() < 0.7); lastSpawnTime = now;
-            spawnInterval = Math.max(700, spawnInterval * 0.985);
+        if (targets.filter(t => t.userData.type === 'enemy').length < 5) { 
+            if (targets.length === 1 && targets[0].userData.type === 'enemy' && (now - lastSpawnTime > 3000) ) { 
+                 createTarget(Math.random() < 0.7); 
+                 lastSpawnTime = now;
+            } else if (targets.length > 1 && (now - lastSpawnTime > spawnInterval)){ // Check for > 1 to allow regular spawning after first test one
+                createTarget(Math.random() < 0.7); 
+                lastSpawnTime = now;
+                spawnInterval = Math.max(1000, spawnInterval * 0.99); 
+            }
+        }
+        if (targets.filter(t => t.userData.type === 'powerup').length < 2 && (now - lastSpawnTime > 5000)) {
+            createTarget(false); 
+            lastSpawnTime = now; 
         }
     }
     
@@ -740,56 +684,67 @@
 
     function showLevelUp() { 
       const levelUpEl = document.getElementById('level-up');
-      levelUpEl.textContent = `LEVEL ${level}!`;
-      levelUpEl.style.transform = 'translate(-50%, -50%) scale(0.5)';
-      levelUpEl.style.opacity = '1';
-      setTimeout(() => { levelUpEl.style.transform = 'translate(-50%, -50%) scale(1.2)'; }, 50);
-      setTimeout(() => { levelUpEl.style.transform = 'translate(-50%, -50%) scale(1)'; }, 400);
-      levelUpDisplayTime = performance.now();
+      if (levelUpEl) { 
+        levelUpEl.textContent = `LEVEL ${level}!`;
+        levelUpEl.style.transform = 'translate(-50%, -50%) scale(0.5)';
+        levelUpEl.style.opacity = '1';
+        setTimeout(() => { if(levelUpEl) levelUpEl.style.transform = 'translate(-50%, -50%) scale(1.2)'; }, 50);
+        setTimeout(() => { if(levelUpEl) levelUpEl.style.transform = 'translate(-50%, -50%) scale(1)'; }, 400);
+        levelUpDisplayTime = performance.now();
+      }
     }
     function showCombo(comboValue) { 
       const comboEl = document.getElementById('combo-display');
-      comboEl.textContent = `COMBO x${comboValue}!`;
-      comboEl.style.transform = 'translate(-50%, -50%) scale(1.5)';
-      comboEl.style.opacity = '1';
-      setTimeout(() => { comboEl.style.transform = 'translate(-50%, -50%) scale(1)'; }, 50);
-      comboDisplayTime = performance.now();
+      if (comboEl) { 
+        comboEl.textContent = `COMBO x${comboValue}!`;
+        comboEl.style.transform = 'translate(-50%, -50%) scale(1.5)';
+        comboEl.style.opacity = '1';
+        setTimeout(() => { if(comboEl) comboEl.style.transform = 'translate(-50%, -50%) scale(1)'; }, 50);
+        comboDisplayTime = performance.now();
+      }
     }
 
     function handleShoot() { 
-      if(!gameRunningGlobal || ammo <= 0) {
-        if (ammo <=0 && gameRunningGlobal) { 
-            const originalZ = camera.position.z;
-            camera.position.z += 0.1; 
-            setTimeout(() => camera.position.z = originalZ, 80);
-        } 
-        return;
+      if(!gameRunningGlobal || ammo <= 0 || !camera) return;
+      
+      if (ammo <=0 && gameRunningGlobal) { 
+          const originalZ = camera.position.z;
+          camera.position.z += 0.1; 
+          setTimeout(() => { if(camera) camera.position.z = originalZ; }, 80);
+          return;
       }
-      shootSound.currentTime = 0;
-      shootSound.play().catch(e => console.warn("Error playing shoot sound:", e));
+      if (shootSound) { 
+        shootSound.currentTime = 0;
+        shootSound.play().catch(e => console.warn("Error playing shoot sound:", e));
+      }
 
       ammo--;
       muzzleFlash.intensity = 15; setTimeout(() => { muzzleFlash.intensity = 0; }, 60);
       const projectile = createProjectile();
+      if (!projectile) return; 
       const direction = new THREE.Vector3(0,0,-1); direction.applyQuaternion(camera.quaternion);
       projectile.userData = { velocity: direction.multiplyScalar(1.8), timer: 100 };
     }
     function handleReload() { 
-      if(ammo < maxAmmo && gameRunningGlobal) {
-        reloadSound.currentTime = 0;
-        reloadSound.play().catch(e => console.warn("Error playing reload sound:", e));
+      if(ammo < maxAmmo && gameRunningGlobal && camera && scene) {
+        if (reloadSound) { 
+            reloadSound.currentTime = 0;
+            reloadSound.play().catch(e => console.warn("Error playing reload sound:", e));
+        }
 
         ammo = maxAmmo; const originalZ = camera.position.z; camera.position.z += 0.2; 
-        setTimeout(() => { camera.position.z = originalZ; }, 120);
+        setTimeout(() => { if(camera) camera.position.z = originalZ; }, 120);
         const reloadFlash = new THREE.PointLight(0x0066ff, 8, 15);
         reloadFlash.position.copy(camera.position); scene.add(reloadFlash);
-        setTimeout(() => { scene.remove(reloadFlash); reloadFlash.dispose(); }, 250);
+        setTimeout(() => { if(scene) scene.remove(reloadFlash); reloadFlash.dispose(); }, 250);
       }
     }
     
     function drawHUD() {
+      if (!ctx) return; 
       ctx.clearRect(0,0,innerWidth,innerHeight);
-      if (!gameRunningGlobal && window.finalScore === undefined && !document.getElementById('game-over').style.display.includes('flex')) return;
+      const gameOverEl = document.getElementById('game-over');
+      if (!gameRunningGlobal && (window.finalScore === undefined || window.finalScore === null) && gameOverEl && !gameOverEl.style.display.includes('flex')) return;
       
       ctx.strokeStyle = 'rgba(0,255,255,0.8)'; ctx.lineWidth = 3;
       const reticleSize = 20 + Math.sin(performance.now()/200)*3; const gap = 8;
@@ -829,35 +784,39 @@
       ctx.restore();
     }
 
-
     function doGameOver(){ 
       gameRunningGlobal = false; 
       window.finalScore = score;
-      if (!backgroundMusic.paused) {
+      if (backgroundMusic && !backgroundMusic.paused) {
           backgroundMusic.pause();
       }
-      setTimeout(() => window.showGameOver(), 500);
+      setTimeout(() => {
+          if (typeof window.showGameOver === 'function') window.showGameOver();
+      }, 500);
     }
     
-    let startTime = 0;
-    function animate(time){
+    let gameStartTime = 0; 
+    function animate(time){ 
       window.animId = requestAnimationFrame(animate);
-      if (!startTime) startTime = time;
-      const now = performance.now();
+      if (!gameStartTime && time) gameStartTime = time; 
+      const now = performance.now(); 
       
       if (typeof animateLights === 'function') animateLights(now);
 
+      const levelUpEl = document.getElementById('level-up');
+      const comboEl = document.getElementById('combo-display');
+
       if(levelUpDisplayTime > 0 && now - levelUpDisplayTime > 2000) {
-        const el = document.getElementById('level-up'); if(el) el.style.opacity = '0'; 
+        if(levelUpEl) levelUpEl.style.opacity = '0'; 
         levelUpDisplayTime = 0;
       }
       if(comboDisplayTime > 0 && now - comboDisplayTime > 1500) {
-        const el = document.getElementById('combo-display'); if(el) el.style.opacity = '0';
+        if(comboEl) comboEl.style.opacity = '0';
         comboDisplayTime = 0;
       }
 
-      if(gameRunningGlobal){ 
-        difficulty = 1 + (now - startTime) / 60000;
+      if(gameRunningGlobal && camera && scene){ 
+        difficulty = 1 + (now - (gameStartTime || now) ) / 60000; 
         const targetCameraX = lane * 6;
         camera.position.x += (targetCameraX - camera.position.x) * 0.12;
 
@@ -890,8 +849,7 @@
               const nowPerf = performance.now();
               combo = (nowPerf - lastHitTime < 2000) ? combo + 1 : 1; lastHitTime = nowPerf;
               if(t.userData.type === 'enemy') {
-                const explosionObj = createExplosion(t.position.x, t.position.y, t.position.z);
-                explosionObj.particles.forEach(particle => scene.add(particle)); explosions.push(explosionObj);
+                createExplosion(t.position.x, t.position.y, t.position.z); 
                 score += 10 + Math.floor(combo/3); if(combo > 2) showCombo(combo);
                 if(score >= scoreToNextLevel) {
                   level++; scoreToNextLevel += level * 100; maxAmmo += 5; ammo = maxAmmo;
@@ -907,43 +865,67 @@
             }
           }
           if (hitSomething || p.userData.timer <= 0 || p.position.z < -100) {
-            scene.remove(p); p.geometry.dispose(); p.material.dispose(); return false;
+            if(scene) scene.remove(p); 
+            if(p.geometry) p.geometry.dispose(); 
+            if(p.material) p.material.dispose(); 
+            return false;
           } return true;
         });
 
         targets = targets.filter(t => { 
-          t.position.z += 0.1 * difficulty;
+          t.position.z += 0.1 * difficulty; 
+          if (t.userData && t.userData.isBillboard && t.userData.type === 'enemy' && camera) {
+             t.quaternion.copy(camera.quaternion);
+          }
           if (t.position.z > camera.position.z + 1) {
             if(!t.userData.hit){
               if(t.userData.type === 'enemy') { health -= 15; combo = 0; }
               else if (t.userData.type === 'powerup') { score += 5; }
             }
-            scene.remove(t); t.geometry.dispose(); 
-            if(t.material) { if(t.material.map) t.material.map.dispose(); t.material.dispose(); }
-            if (t.userData.animInterval) clearInterval(t.userData.animInterval);
+            if(scene) scene.remove(t); 
+            if(t.material) { 
+                if(t.material.map) t.material.map.dispose(); 
+                t.material.dispose(); 
+            }
+            if (t.geometry) t.geometry.dispose(); 
             return false;
           }
           if(t.userData.hit){
             if (t.material && t.material.opacity !== undefined) t.material.opacity = Math.max(0, (t.userData.timer / 20));
             t.userData.timer--;
             if(t.userData.timer <= 0) {
-              scene.remove(t); t.geometry.dispose(); 
-              if(t.material) { if(t.material.map) t.material.map.dispose(); t.material.dispose(); }
-              if (t.userData.animInterval) clearInterval(t.userData.animInterval); 
+              if(scene) scene.remove(t); 
+              if(t.material) { 
+                  if(t.material.map) t.material.map.dispose(); 
+                  t.material.dispose(); 
+              }
+               if (t.geometry) t.geometry.dispose(); 
               return false;
             }
           } return true;
         });
         if(health <= 0) { health = 0; doGameOver(); }
       }
-      renderer.render(scene,camera); drawHUD();
+      if(renderer && camera && scene) renderer.render(scene,camera); 
+      if(ctx) drawHUD();
     }
 
-    startTime = performance.now();
-    for(let i=0;i<3;i++) createTarget(true);
-    for(let i=0;i<1;i++) createTarget(false);
+    gameStartTime = performance.now(); 
+    console.log("[DEBUG] Spawning ONE test enemy plane and ONE powerup...");
+    createTarget(true); 
+    createTarget(false); 
     lastSpawnTime = performance.now();
-    animate(performance.now());
+    
+    if (scene && scene.children) {
+      console.log("[DEBUG] Scene children just before first animate call:", scene.children.map(c => c.type + (c.userData && c.userData.type ? ` (${c.userData.type})` : '')));
+    }
+
+    if (typeof animate === 'function') {
+        animate(performance.now());
+        console.log("[DEBUG] Initial animate() called.");
+    } else {
+        console.error("[CRITICAL] animate function is not defined!");
+    }
   }
   
   window.addEventListener('resize', () => {
