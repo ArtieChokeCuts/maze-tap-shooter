@@ -258,7 +258,7 @@
   <div id="instructions">
     <p>DRAG or A/D KEYS to Strafe</p>
     <p>TAP SCREEN to Shoot</p>
-    <p>SHOOT RED ENEMIES • COLLECT POWER-UPS TO RELOAD</p>
+    <p>SHOOT RED ENEMIES • COLLECT POWER-UPS (Reload/Health)</p>
     <p>WATCH TARGETS EXPLODE ON HIT!</p>
   </div>
 
@@ -417,20 +417,35 @@
     window.addEventListener('orientationchange', handleOrientation);
   });
 
-  function createTarget(isEnemy) {
+  function createTarget(isEnemy, powerupType = 'reload_pack') { 
       if (!scene || !textureLoader) { 
           console.error("[createTarget] ERROR: scene or textureLoader not initialized!");
           return null;
       }
 
-      if (!isEnemy) { // POWER-UP (Reload Pack)
-          console.log("[DEBUG] createTarget: Attempting to create RELOAD POWER-UP sprite with 'powerup.png'.");
+      if (!isEnemy) { // POWER-UP
+          let textureFile, planeColor, subType;
+          let planeWidth = 1.5; 
+          let planeHeight = 1.5;
 
-          const textureFile = 'powerup.png';
-          const planeColor = 0x44ccff; 
-
-          const planeWidth = 1.8;  // <<< ADJUST THIS for your 256x256 powerup.png visual size >>>
-          const planeHeight = 1.8; // <<< ADJUST THIS >>>
+          if (powerupType === 'reload_pack') {
+              textureFile = 'powerup.png'; 
+              planeColor = 0x44ccff; 
+              subType = 'reload_pack';
+              planeWidth = 1.8; 
+              planeHeight = 1.8;
+              console.log("[DEBUG] createTarget: Attempting to create RELOAD PACK sprite.");
+          } else if (powerupType === 'health_pack') { 
+              textureFile = 'health_pack.png';    
+              planeColor = 0x44ff44; 
+              subType = 'health_pack';
+              // planeWidth = 1.5; // Default size is fine for health pack too
+              // planeHeight = 1.5;
+              console.log("[DEBUG] createTarget: Attempting to create HEALTH PACK sprite.");
+          } else {
+              console.warn("[createTarget] Unknown powerupType:", powerupType, "Cannot create powerup.");
+              return null;
+          }
 
           const powerupMaterial = new THREE.MeshBasicMaterial({
               transparent: true,
@@ -441,19 +456,20 @@
 
           textureLoader.load(
               textureFile,
-              (loadedTexture) => { 
-                  console.log(`[SUCCESS] ${textureFile} texture LOADED!`);
+              (loadedTexture) => {
+                  console.log(`[SUCCESS] ${textureFile} texture LOADED for ${subType}!`);
                   powerupMaterial.map = loadedTexture;
                   powerupMaterial.color.set(0xffffff); 
                   powerupMaterial.needsUpdate = true;
               },
               undefined,
-              (err) => { 
-                  console.error(`[CRITICAL FAILURE] ${textureFile} texture FAILED to load.`, err); 
+              (err) => {
+                  console.error(`[CRITICAL FAILURE] ${textureFile} texture FAILED to load for ${subType}.`, err);
               }
           );
           
-          const powerupPlane = new THREE.Mesh(new THREE.PlaneGeometry(planeWidth, planeHeight), powerupMaterial);
+          const powerupGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+          const powerupPlane = new THREE.Mesh(powerupGeometry, powerupMaterial);
 
           const laneXPowerUp = (Math.floor(Math.random() * 3) - 1) * 6;
           const zPosPowerUp = -(Math.random() * 30 + 50);
@@ -461,21 +477,21 @@
 
           powerupPlane.userData = {
               type: 'powerup',
-              subType: 'reload_pack', 
+              subType: subType,
               hit: false,
               timer: 0,
               isBillboard: true
           };
 
           scene.add(powerupPlane); targets.push(powerupPlane);
-          console.log(`[DEBUG] RELOAD POWER-UP PLANE added. Pos:`, powerupPlane.position.toArray().join(','), "World Size:", planeWidth, "x", planeHeight);
+          console.log(`[DEBUG] ${subType.toUpperCase()} PLANE added. Pos:`, powerupPlane.position.toArray().join(','), "World Size:", planeWidth, "x", planeHeight);
           return powerupPlane;
 
       } else { // ENEMY PLANE
           console.log("[DEBUG] createTarget: Attempting to create ENEMY PLANE with texture 'enemy1.png'.");
 
-          const planeWidth = 3.0;  // Test size, adjust as needed
-          const planeHeight = 3.0; // Test size, adjust as needed
+          const planeWidth = 3.0;  
+          const planeHeight = 3.0; 
 
           const enemyGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
           const enemyMaterial = new THREE.MeshBasicMaterial({
@@ -609,7 +625,9 @@
     ctx = hudCanvas.getContext('2d');
     
     let health = 100, score = 0, penalties = 0, ammo = 15, maxAmmo = 15, lane = 0;
-    let lastSpawnTime = 0, spawnInterval = 2500, difficulty = 1, combo = 0, lastHitTime = 0; 
+    let lastSpawnTime = 0, spawnInterval = 2500;
+    let lastPowerupSpawnTime = 0, powerupSpawnInterval = 6000; // Init powerup timers
+    let difficulty = 1, combo = 0, lastHitTime = 0; 
     let level = 1, scoreToNextLevel = 100, levelUpDisplayTime = 0, comboDisplayTime = 0;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.8)); 
@@ -640,31 +658,39 @@
 
     function trySpawnTarget(now) {
         const maxEnemies = 5;
-        const maxReloadPacks = 1; 
+        const maxReloadPacks = 1;
+        const maxHealthPacks = 1;
 
         let currentEnemies = targets.filter(t => t.userData.type === 'enemy').length;
         let currentReloadPacks = targets.filter(t => t.userData.type === 'powerup' && t.userData.subType === 'reload_pack').length;
+        let currentHealthPacks = targets.filter(t => t.userData.type === 'powerup' && t.userData.subType === 'health_pack').length;
 
         if (currentEnemies < maxEnemies) {
             if (now - lastSpawnTime > spawnInterval) {
-                createTarget(true); 
+                createTarget(true);
                 lastSpawnTime = now;
                 spawnInterval = Math.max(800, spawnInterval * 0.985);
             }
         }
 
-        if (currentReloadPacks < maxReloadPacks) {
-            if (now - lastSpawnTime > 7000 && Math.random() < 0.20) { 
-                createTarget(false); // This will now create the 'reload_pack' type by default
-                lastSpawnTime = now; 
+        if (now - lastPowerupSpawnTime > powerupSpawnInterval) {
+            let powerupSpawnedThisCycle = false;
+            if (currentHealthPacks < maxHealthPacks && Math.random() < 0.25) { 
+                createTarget(false, 'health_pack');
+                powerupSpawnedThisCycle = true;
+            }
+            else if (currentReloadPacks < maxReloadPacks && Math.random() < 0.35) { 
+                createTarget(false, 'reload_pack');
+                powerupSpawnedThisCycle = true;
+            }
+
+            if (powerupSpawnedThisCycle) {
+                lastPowerupSpawnTime = now; 
+                powerupSpawnInterval = Math.max(4000, powerupSpawnInterval * 0.995); 
             }
         }
     }
     
-    // Remove dblclick listener for reload
-    // renderer.domElement.removeEventListener('dblclick', previousDblClickListener); // If you had one
-
-    // Input handlers (pointer, keyboard)
     let isDragging = false, dragStartX = 0, cameraStartX = 0;
     let pointerDownTime = 0;
     let pointerDownX = 0;
@@ -722,11 +748,9 @@
         if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') lane = Math.max(-1, lane - 1);
         if(e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') lane = Math.min(1, lane + 1);
         if(e.code === 'Space' || e.key.toLowerCase() === 'w' || e.key === 'Enter') { e.preventDefault(); handleShoot(); }
-        if(e.key.toLowerCase() === 'r') handleReload(false); // Call with false for manual attempt
+        if(e.key.toLowerCase() === 'r') handleReload(false); 
     });
     
-    // No dblclick listener for reload anymore
-
     function showLevelUp() { 
       const levelUpEl = document.getElementById('level-up');
       if (levelUpEl) { 
@@ -771,10 +795,9 @@
       projectile.userData = { velocity: direction.multiplyScalar(1.8), timer: 100 };
     }
 
-    function handleReload(isFromPowerup = false) { // Flag to distinguish powerup vs manual
+    function handleReload(isFromPowerup = false) { 
         if (!isFromPowerup) {
              console.log("[INFO] Manual reload (R key) disabled. Collect a power-up!");
-             // Optionally, add a sound effect for failed manual reload attempt
              return; 
         }
 
@@ -795,7 +818,6 @@
             setTimeout(() => { if (scene) scene.remove(reloadFlash); reloadFlash.dispose(); }, 250);
         } else if (ammo >= maxAmmo && isFromPowerup) {
             console.log("[INFO] Ammo already full, reload power-up had no effect.");
-            // Optionally play a different sound or give a small score bonus for collecting when full
         }
     }
     
@@ -903,14 +925,20 @@
              t.quaternion.copy(camera.quaternion);
           }
 
-          // Player Collision with Power-ups (reload_pack)
-          if (t.userData.type === 'powerup' && t.userData.subType === 'reload_pack' && !t.userData.hit) {
+          // Player Collision with Power-ups
+          if (t.userData.type === 'powerup' && !t.userData.hit) {
               const distanceToPlayerZ = Math.abs(t.position.z - camera.position.z);
               const powerupLane = Math.round(t.position.x / 6);
               if (distanceToPlayerZ < 1.0 && powerupLane === lane) { 
                   t.userData.hit = true; 
-                  t.userData.timer = 1;  // Mark for quick removal
-                  handleReload(true); // Player collided, trigger reload
+                  t.userData.timer = 1;  
+                  if (t.userData.subType === 'reload_pack') {
+                      handleReload(true); 
+                  } else if (t.userData.subType === 'health_pack') {
+                      const healthGained = 25; 
+                      health = Math.min(100, health + healthGained); 
+                      console.log(`[POWERUP] Health pack collected! Gained: ${healthGained}, Total Health: ${health}`);
+                  }
               }
           }
           
@@ -950,7 +978,6 @@
           for (let i = targets.length - 1; i >= 0; i--) {
             const t = targets[i]; 
             if (t.userData.hit) continue; 
-            // Projectiles should only interact with enemies
             if (t.userData.type !== 'enemy') continue; 
 
             const tBox = new THREE.Box3().setFromObject(t);
@@ -989,11 +1016,14 @@
     }
 
     gameStartTime = performance.now(); 
-    console.log("[DEBUG] Spawning ONE test enemy plane and ONE test powerup (reload pack)...");
+    console.log("[DEBUG] Spawning ONE test enemy plane, ONE reload pack, and ONE health pack...");
     createTarget(true); 
-    createTarget(false); // This will now create the 'reload_pack' powerup
+    createTarget(false, 'reload_pack'); 
+    createTarget(false, 'health_pack'); 
     lastSpawnTime = performance.now(); 
+    lastPowerupSpawnTime = performance.now();
     spawnInterval = 2500; 
+    powerupSpawnInterval = 6000;
     
     if (scene && scene.children) {
       console.log("[DEBUG] Scene children just before first animate call:", scene.children.map(c => c.type + (c.userData && c.userData.type ? ` (${c.userData.type})` : '')));
