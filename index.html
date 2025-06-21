@@ -13,7 +13,7 @@
       font-family: 'Orbitron', sans-serif;
       background: linear-gradient(to bottom, #0a0a2a, #1a1a4a);
       color: white;
-      touch-action: none;
+      touch-action: none; /* Important for preventing default touch behaviors like pinch-zoom */
       height: 100vh;
     }
     canvas { position: absolute; top: 0; left: 0; display: block; }
@@ -138,15 +138,14 @@
       pointer-events: none; font-weight: bold;
     }
 
-    /* CSS from deepseek_css_20250621_21b96f.css (Loading Screen Enhancements) */
-    #loading h1 { /* Overrides existing #loading h1 for new loading screen */
+    #loading h1 { 
       color: #00ffcc; 
       text-shadow: 0 0 10px #00ffcc; 
       margin-bottom: 2rem;
       font-size: 2.5rem;
       animation: pulse 1.5s infinite alternate;
     }
-    @keyframes pulse { /* Already defined, kept for clarity */
+    @keyframes pulse { 
       from { transform: scale(1); }
       to { transform: scale(1.05); text-shadow: 0 0 20px #00ffcc; }
     }
@@ -155,12 +154,12 @@
       justify-content: center; height: 100%; padding: 20px; text-align: center;
     }
     .progress-container { width: 80%; max-width: 400px; margin: 30px 0; }
-    .progress-bar { /* Overrides/complements original .progress-bar if any */
+    .progress-bar { 
       height: 20px; background: rgba(0, 40, 80, 0.5);
       border-radius: 10px; overflow: hidden; position: relative;
       box-shadow: 0 0 10px rgba(0, 150, 255, 0.3);
     }
-    .progress { /* Complements original .progress */
+    .progress { 
       height: 100%; background: linear-gradient(90deg, #0066ff, #00ffcc);
       width: 0%; transition: width 0.3s ease-out; position: relative; z-index: 1;
     }
@@ -183,13 +182,12 @@
     }
     .hint {
       position: absolute; bottom: 30px; color: rgba(255, 255, 255, 0.6);
-      font-size: 12px; animation: pulse 2s infinite; /* Uses existing pulse animation */
+      font-size: 12px; animation: pulse 2s infinite; 
     }
 
-    /* CSS for Orientation Warning (from deepseek_javascript_20250621_d7b310.js) */
     #orientation-warning {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.95); z-index: 1000; /* High z-index */
+      background: rgba(0,0,0,0.95); z-index: 1000; 
       display: none; justify-content: center; align-items: center;
       font-size: 1.8rem; color: #ff5555; text-align: center; padding: 20px;
     }
@@ -203,13 +201,12 @@
       #start-button, #restart-button { padding: 12px 30px; font-size: 1.2rem; }
       #level-up { font-size: 2rem; }
       #combo-display { font-size: 1.8rem; }
-      #orientation-warning { font-size: 1.5rem; } /* Responsive font for warning */
+      #orientation-warning { font-size: 1.5rem; } 
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 </head>
 <body>
-  <!-- Replaced loading div (from deepseek_html_20250621_a3137d.html) -->
   <div id="loading">
     <div class="loading-content">
       <h1>EXPLOSIVE TARGET SHOOTER</h1>
@@ -228,8 +225,8 @@
     <h1>EXPLOSIVE TARGET SHOOTER</h1>
     <button id="start-button">START MISSION</button>
     <div id="instructions">
-      <p>CLICK & DRAG or A/D KEYS to Strafe</p>
-      <p>TAP CENTER to Shoot | DOUBLE-CLICK to Reload</p>
+      <p>DRAG or A/D KEYS to Strafe</p>
+      <p>TAP SCREEN to Shoot | DOUBLE-CLICK to Reload</p>
       <p>SHOOT RED ENEMIES • AVOID GREEN POWER-UPS</p>
       <p>WATCH TARGETS EXPLODE ON HIT!</p>
     </div>
@@ -250,7 +247,6 @@
     <div class="mobile-btn" id="right-btn">→</div>
   </div>
 
-  <!-- Added Orientation Warning div -->
   <div id="orientation-warning">
     <div>Please rotate your device to landscape mode to play.</div>
   </div>
@@ -261,23 +257,24 @@
   let targets = [];
   let projectiles = [];
   let explosions = [];
-  let gameRunningGlobal = false; // Global flag for orientation handling
-  let animateLights = () => {}; // Placeholder for tunnel light animation
+  let gameRunningGlobal = false; 
+  let animateLights = () => {}; 
 
   // --- AUDIO ASSETS ---
-  const shootSound = new Audio('laser.mp3'); // Assumes laser.mp3 is in the same folder
-  shootSound.volume = 0.5; // Optional: Adjust volume
-  const explosionSound = new Audio('explosion.mp3'); // Assumes explosion.mp3 is in the same folder
-  const reloadSound = new Audio('reload.mp3'); // Assumes reload.mp3 is in the same folder
+  const shootSound = new Audio('laser.mp3'); 
+  shootSound.volume = 0.5; 
+  const explosionSound = new Audio('explosion.mp3'); 
+  const reloadSound = new Audio('reload.mp3'); 
+  const backgroundMusic = new Audio('backgroundmusic.mp3'); // Added
+  backgroundMusic.loop = true; // Added
+  backgroundMusic.volume = 0.9; // Added - Adjust as needed
   // --- END AUDIO ASSETS ---
 
-
-  // New generateEnemySpriteSheet (from deepseek_javascript_20250621_a4ba2f.js)
   function generateEnemySpriteSheet() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const cols = 8; // More frames
-    const frameWidth = 256; // Higher resolution
+    const cols = 8; 
+    const frameWidth = 256; 
     const frameHeight = 256;
     
     canvas.width = frameWidth * cols;
@@ -293,14 +290,14 @@
 
     for (let i = 0; i < cols; i++) {
       const x = i * frameWidth;
-      const pulse = Math.sin(i/cols * Math.PI * 2) * 0.3 + 0.7; // Sine pulse for size
+      const pulse = Math.sin(i/cols * Math.PI * 2) * 0.3 + 0.7; 
       
-      ctx.fillStyle = gradient; // Outer glow
+      ctx.fillStyle = gradient; 
       ctx.beginPath();
       ctx.arc(x + frameWidth/2, frameHeight/2, frameWidth/2.5, 0, Math.PI * 2);
       ctx.fill();
       
-      ctx.fillStyle = `rgba(255,${50*pulse},${50*pulse},0.9)`; // Main body with color pulse
+      ctx.fillStyle = `rgba(255,${50*pulse},${50*pulse},0.9)`; 
       ctx.beginPath();
       ctx.arc(x + frameWidth/2, frameHeight/2, frameWidth/3 * pulse, 0, Math.PI * 2);
       ctx.fill();
@@ -312,7 +309,7 @@
       coreGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
       coreGrad.addColorStop(1, 'rgba(200,200,255,0.5)');
       
-      ctx.fillStyle = coreGrad; // Core
+      ctx.fillStyle = coreGrad; 
       ctx.beginPath();
       ctx.arc(x + frameWidth/2, frameHeight/2, frameWidth/6, 0, Math.PI * 2);
       ctx.fill();
@@ -344,7 +341,6 @@
     return explosion;
   }
 
-  // Orientation Handling (from deepseek_javascript_20250621_d7b310.js)
   function handleOrientation() {
     const orientationWarningEl = document.getElementById('orientation-warning');
     if (!orientationWarningEl) return;
@@ -352,11 +348,20 @@
     
     if (isPortrait) {
       orientationWarningEl.style.display = 'flex';
-      gameRunningGlobal = false; // Use the global flag to pause the game logic
-    } else {
+      if (gameRunningGlobal && !backgroundMusic.paused) { // Pause music if game was running
+          backgroundMusic.pause();
+      }
+      gameRunningGlobal = false; 
+    } else { // Landscape
       orientationWarningEl.style.display = 'none';
+      // Check if a game was actually initialized (renderer exists)
+      // and start screen is not visible (meaning game was in progress or past start screen)
+      // and gameRunningGlobal is false (meaning it was paused by orientation)
       if (!gameRunningGlobal && window.renderer && !document.getElementById('start-screen').style.display.includes('flex')) {
          gameRunningGlobal = true;
+         if (backgroundMusic.paused) { // Resume music if it was paused
+            backgroundMusic.play().catch(e => console.warn("Error resuming background music:", e));
+         }
       }
     }
   }
@@ -421,6 +426,11 @@
 
   function initGame(){
     let scene = new THREE.Scene();
+
+    // Start or resume background music
+    if (backgroundMusic.paused) {
+        backgroundMusic.play().catch(e => console.warn("Error playing background music:", e));
+    }
 
     function createTunnel() {
       const tunnelGeometry = new THREE.CylinderGeometry(50, 50, 300, 64, 1, true);
@@ -607,28 +617,58 @@
         }
     }
     
-    let isDragging=false, dragStartX=0, cameraStartX=0;
+    let isDragging = false, dragStartX = 0, cameraStartX = 0;
+    let pointerDownTime = 0;
+    let pointerDownX = 0;
+    const TAP_MAX_DURATION = 250; 
+    const TAP_MAX_DISTANCE = 15;  
+
     renderer.domElement.addEventListener('pointerdown', e => {
-      if(e.button !== 0 || !gameRunningGlobal) return; 
-      isDragging = true; dragStartX = e.clientX; cameraStartX = camera.position.x;
+      if (e.button !== 0 || !gameRunningGlobal) return; 
+      isDragging = true; 
+      dragStartX = e.clientX; 
+      cameraStartX = camera.position.x;
+      pointerDownTime = performance.now();
+      pointerDownX = e.clientX;
     }, { passive: false });
+
     renderer.domElement.addEventListener('pointermove', e => {
-      if(!isDragging || !gameRunningGlobal) return;
-      const dx = e.clientX - dragStartX; const targetX = cameraStartX - dx * 0.035;
+      if (!isDragging || !gameRunningGlobal) return;
+      const distanceMovedSinceDown = Math.abs(e.clientX - pointerDownX);
+      if (distanceMovedSinceDown < TAP_MAX_DISTANCE && performance.now() - pointerDownTime < TAP_MAX_DURATION) {
+          return; 
+      }
+      const dx = e.clientX - dragStartX;
+      const targetX = cameraStartX - dx * 0.035;
       camera.position.x = THREE.MathUtils.clamp(targetX, -10, 10);
       lane = Math.max(-1, Math.min(1, Math.round(camera.position.x / 6)));
     }, { passive: false });
+
     renderer.domElement.addEventListener('pointerup', e => {
-      if(e.button !== 0 || !gameRunningGlobal) return;
-      if(!isDragging && e.target === renderer.domElement) handleShoot();
-      isDragging = false;
+      if (e.button !== 0 || !gameRunningGlobal) {
+        if (isDragging) isDragging = false; 
+        return;
+      }
+      if (isDragging) { 
+        const upTime = performance.now();
+        const duration = upTime - pointerDownTime;
+        const distanceMoved = Math.abs(e.clientX - pointerDownX);
+        if (duration < TAP_MAX_DURATION && distanceMoved < TAP_MAX_DISTANCE) {
+          if (e.target === renderer.domElement) { 
+            handleShoot();
+          }
+        }
+      }
+      isDragging = false; 
     });
+
     const leftBtn = document.getElementById('left-btn');
     const rightBtn = document.getElementById('right-btn');
-    const shootBtn = document.getElementById('shoot-btn');
+    const shootBtn = document.getElementById('shoot-btn'); 
     if(leftBtn) leftBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); if(gameRunningGlobal) lane = Math.max(-1, lane - 1); });
     if(rightBtn) rightBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); if(gameRunningGlobal) lane = Math.min(1, lane + 1); });
     if(shootBtn) shootBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); handleShoot(); });
+    
     window.addEventListener('keydown', e => {
         if (!gameRunningGlobal) return;
         if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') lane = Math.max(-1, lane - 1);
@@ -636,10 +676,10 @@
         if(e.code === 'Space' || e.key.toLowerCase() === 'w' || e.key === 'Enter') { e.preventDefault(); handleShoot(); }
         if(e.key.toLowerCase() === 'r') handleReload();
     });
+    
     renderer.domElement.addEventListener('dblclick', (e) => {
         if (e.target === renderer.domElement && gameRunningGlobal) handleReload();
     });
-
 
     function showLevelUp() { 
       const levelUpEl = document.getElementById('level-up');
@@ -734,7 +774,12 @@
 
 
     function doGameOver(){ 
-      gameRunningGlobal = false; window.finalScore = score;
+      gameRunningGlobal = false; 
+      window.finalScore = score;
+      if (!backgroundMusic.paused) {
+          backgroundMusic.pause();
+      }
+      // Optional: backgroundMusic.currentTime = 0; // Reset music to start for next game
       setTimeout(() => window.showGameOver(), 500);
     }
     
