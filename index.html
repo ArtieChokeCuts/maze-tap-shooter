@@ -88,7 +88,9 @@
       margin-bottom:3rem;
       text-shadow: 0 0 10px #00ffcc;
     }
-    /* Default #instructions style (for desktop or if shown in-game on mobile via JS) */
+    
+    /* Default #instructions style (now applies wherever it is, if visible) */
+    /* If you never want to show instructions, you can remove this whole block or set display:none */
     #instructions { 
       position:absolute; 
       bottom:20px; 
@@ -99,7 +101,8 @@
       max-width:500px; 
       padding:0 20px;
       line-height: 1.6;
-      /* pointer-events: none; /* Add if it should not intercept clicks during gameplay */
+      display: none; /* Hide instructions by default globally */
+      z-index: 5; /* Ensure it's above canvas but below modals if shown */
     }
     #instructions p { 
       margin-top: 0.5em; 
@@ -201,7 +204,6 @@
       #combo-display { font-size: 1.8rem; }
       #orientation-warning { font-size: 1.5rem; } 
 
-      /* --- START SCREEN MOBILE REFINEMENTS (Button Only) --- */
       #start-screen {
         padding: 20px 15px; 
         justify-content: center; 
@@ -211,7 +213,7 @@
       }
 
       #start-screen h1 { 
-        font-size: 2.2rem; 
+        font-size: 2.2rem; /* Adjusted for mobile */
         margin-bottom: 2rem; 
         line-height: 1.25; 
         text-align: center; 
@@ -228,24 +230,15 @@
         margin-bottom: 1rem; 
       }
 
-      /* Hide instructions specifically on the mobile start screen */
-      #start-screen #instructions {
-        display: none; 
-      }
-      /* --- END START SCREEN MOBILE REFINEMENTS (Button Only) --- */
-
-      /* This rule positions #instructions if it's NOT in #start-screen (e.g., during gameplay if made visible) */
-      /* If you don't intend to show instructions during mobile gameplay, this rule might not be needed */
-      /* or could be combined with a class that shows it. */
+      /* This rule for #instructions is for when it's NOT part of #start-screen.
+         If #instructions is globally hidden (display: none; in its main rule), 
+         you'd need JS to show it, and then this rule would position it.
+         Since it's globally hidden now, this rule just defines its position IF shown. */
       #instructions { 
-        position: absolute; 
-        bottom: 120px; /* Position above mobile controls if shown */
-        /* If instructions are shown during gameplay on mobile, ensure they are readable: */
-        /* font-size: 0.8rem; */
-        /* max-width: 90%; */
-      }
-      #instructions p {
-        /* font-size: 0.75rem; */ /* If shown in-game on mobile */
+         /* position: absolute; is already in global style */
+         /* bottom: 120px; is already in global style if we want that behavior */
+         /* For mobile, if you want it to appear above mobile controls if shown: */
+         bottom: 120px; 
       }
     }
   </style>
@@ -269,13 +262,18 @@
   <div id="start-screen">
     <h1>EXPLOSIVE TARGET SHOOTER</h1>
     <button id="start-button">START MISSION</button>
-    <!-- Instructions are still in HTML for desktop / potential future use -->
-    <div id="instructions">
-      <p>DRAG or A/D KEYS to Strafe</p>
-      <p>TAP SCREEN to Shoot | DOUBLE-CLICK to Reload</p>
-      <p>SHOOT RED ENEMIES • AVOID GREEN POWER-UPS</p>
-      <p>WATCH TARGETS EXPLODE ON HIT!</p>
-    </div>
+    <!-- Instructions div is NO LONGER INSIDE start-screen -->
+  </div>
+
+  <!-- Instructions div moved here, outside of start-screen. 
+       It will be hidden by default due to CSS display:none. 
+       If you want to show it (e.g., on desktop, or via a help button), 
+       you'll need to change its display property. -->
+  <div id="instructions">
+    <p>DRAG or A/D KEYS to Strafe</p>
+    <p>TAP SCREEN to Shoot | DOUBLE-CLICK to Reload</p>
+    <p>SHOOT RED ENEMIES • AVOID GREEN POWER-UPS</p>
+    <p>WATCH TARGETS EXPLODE ON HIT!</p>
   </div>
 
   <div id="game-over">
@@ -418,6 +416,13 @@
     const startBtn  = document.getElementById('start-button');
     const restartBtn= document.getElementById('restart-button');
 
+    // If you want instructions visible on desktop but not mobile start screen:
+    // const instructionsDiv = document.getElementById('instructions');
+    // if (window.innerWidth > 768) { // Or a more robust check for non-touch device
+    //    if(instructionsDiv) instructionsDiv.style.display = 'block'; // Or 'flex' if it's a flex container
+    // }
+
+
     const startFullscreen = () => {
       const elem = document.documentElement;
       if (elem.requestFullscreen) {
@@ -447,18 +452,28 @@
     if (startBtn) {
         startBtn.onclick = () => {
           if (startScr) startScr.style.display = 'none';
+          // If you wanted to show instructions during game on desktop:
+          // const instructionsDiv = document.getElementById('instructions');
+          // if (instructionsDiv && window.innerWidth > 768) instructionsDiv.style.display = 'block';
           startFullscreen();
           setTimeout(initGame, 100); 
         };
     }
     if (restartBtn) {
-        restartBtn.onclick = ()=>{ if (gameOver) gameOver.style.display='none'; initGame(); }
+        restartBtn.onclick = ()=>{ 
+            if (gameOver) gameOver.style.display='none'; 
+            // const instructionsDiv = document.getElementById('instructions');
+            // if (instructionsDiv && window.innerWidth > 768) instructionsDiv.style.display = 'block'; // Show again if on desktop
+            initGame(); 
+        }
     }
     
     window.showGameOver = () => {
         const finalScoreEl = document.getElementById('final-score');
         if (finalScoreEl) finalScoreEl.textContent = `SCORE: ${window.finalScore || 0}`;
         if (gameOver) gameOver.style.display='flex';
+        // const instructionsDiv = document.getElementById('instructions');
+        // if(instructionsDiv) instructionsDiv.style.display = 'none'; // Hide instructions on game over screen
     };
 
     handleOrientation();
