@@ -417,6 +417,8 @@
     window.addEventListener('orientationchange', handleOrientation);
   });
 
+  // Moved createTarget outside initGame to be accessible by trySpawnTarget if trySpawnTarget is also global
+  // This also requires scene and textureLoader to be accessible globally or passed as parameters
   function createTarget(isEnemy) {
       if (!scene || !textureLoader) { 
           console.error("[createTarget] ERROR: scene or textureLoader not initialized!");
@@ -438,24 +440,24 @@
       } else { // ENEMY PLANE
           console.log("[DEBUG] createTarget: Attempting to create ENEMY PLANE with texture 'enemy1.png'.");
 
-          const planeWidth = 2.0;  // <<< ADJUST THIS for your 256x256 enemy1.png >>>
-          const planeHeight = 2.0; // <<< ADJUST THIS (keep same as width for square texture) >>>
+          const planeWidth = 3.0;  // <<< INCREASED FOR TESTING - ADJUST THIS >>>
+          const planeHeight = 3.0; // <<< INCREASED FOR TESTING - ADJUST THIS >>>
 
           const enemyGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
           const enemyMaterial = new THREE.MeshBasicMaterial({
-              // map will be set by texture loader's onLoad callback
               transparent: true,    
               alphaTest: 0.1,       
               side: THREE.DoubleSide,
-              color: 0xff00ff // Magenta fallback color
+              depthWrite: false, // Added for transparency
+              color: 0xff00ff 
           });
 
           textureLoader.load(
               'enemy1.png', 
               function onLoad(loadedTexture) { 
-                  console.log("[SUCCESS] enemy1.png texture LOADED for enemy plane!", loadedTexture);
+                  console.log("[SUCCESS] enemy1.png texture LOADED for enemy plane! Applying to material.", loadedTexture);
                   enemyMaterial.map = loadedTexture;
-                  enemyMaterial.color.set(0xffffff); // Reset color to white to show texture purely
+                  enemyMaterial.color.set(0xffffff); 
                   enemyMaterial.needsUpdate = true;  
               },
               undefined, 
@@ -488,6 +490,7 @@
           return enemyPlane;
       }
   }
+
 
   function initGame(){
     console.log("[DEBUG] initGame started.");
@@ -572,7 +575,7 @@
     ctx = hudCanvas.getContext('2d');
     
     let health = 100, score = 0, penalties = 0, ammo = 15, maxAmmo = 15, lane = 0;
-    let lastSpawnTime = 0, spawnInterval = 3000, difficulty = 1, combo = 0, lastHitTime = 0;
+    let lastSpawnTime = 0, spawnInterval = 2500, difficulty = 1, combo = 0, lastHitTime = 0; // Init spawnInterval
     let level = 1, scoreToNextLevel = 100, levelUpDisplayTime = 0, comboDisplayTime = 0;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.8)); 
@@ -601,20 +604,28 @@
         return projectile;
     }
 
-    function trySpawnTarget(now){ 
-        if (targets.filter(t => t.userData.type === 'enemy').length < 5) { 
-            if (targets.length === 1 && targets[0].userData.type === 'enemy' && (now - lastSpawnTime > 3000) ) { 
-                 createTarget(Math.random() < 0.7); 
-                 lastSpawnTime = now;
-            } else if (targets.length > 1 && (now - lastSpawnTime > spawnInterval)){ // Check for > 1 to allow regular spawning after first test one
-                createTarget(Math.random() < 0.7); 
+    // SIMPLIFIED trySpawnTarget
+    function trySpawnTarget(now) {
+        const maxEnemies = 5;
+        const maxPowerups = 2;
+        let currentEnemies = targets.filter(t => t.userData.type === 'enemy').length;
+        let currentPowerups = targets.filter(t => t.userData.type === 'powerup').length;
+
+        if (currentEnemies < maxEnemies) {
+            if (now - lastSpawnTime > spawnInterval) { 
+                createTarget(true); 
                 lastSpawnTime = now;
-                spawnInterval = Math.max(1000, spawnInterval * 0.99); 
+                spawnInterval = Math.max(800, spawnInterval * 0.985); 
+                console.log("[DEBUG] trySpawnTarget: Spawned ENEMY. New interval:", spawnInterval);
             }
         }
-        if (targets.filter(t => t.userData.type === 'powerup').length < 2 && (now - lastSpawnTime > 5000)) {
-            createTarget(false); 
-            lastSpawnTime = now; 
+
+        if (currentPowerups < maxPowerups) {
+            if (now - lastSpawnTime > 4000 && Math.random() < 0.3) { 
+                createTarget(false); 
+                console.log("[DEBUG] trySpawnTarget: Spawned POWERUP.");
+                // Optionally use a different timer for powerups if you don't want them to affect enemy spawn rate
+            }
         }
     }
     
@@ -851,9 +862,16 @@
               if(t.userData.type === 'enemy') {
                 createExplosion(t.position.x, t.position.y, t.position.z); 
                 score += 10 + Math.floor(combo/3); if(combo > 2) showCombo(combo);
+                // DEBUG LOG FOR LEVEL UP
                 if(score >= scoreToNextLevel) {
-                  level++; scoreToNextLevel += level * 100; maxAmmo += 5; ammo = maxAmmo;
-                  health = Math.min(100, health + 30); showLevelUp();
+                    console.log(`[LEVEL UP] Score: ${score}, NextLevelScore: ${scoreToNextLevel}, Old Level: ${level}`);
+                    level++; 
+                    scoreToNextLevel += level * 100; 
+                    console.log(`           New Level: ${level}, New NextLevelScore: ${scoreToNextLevel}`);
+                    maxAmmo += 5; 
+                    ammo = maxAmmo;
+                    health = Math.min(100, health + 30); 
+                    showLevelUp();
                 }
               } else if (t.userData.type === 'powerup') {
                 penalties++; health -= 10; combo = 0;
@@ -914,7 +932,8 @@
     console.log("[DEBUG] Spawning ONE test enemy plane and ONE powerup...");
     createTarget(true); 
     createTarget(false); 
-    lastSpawnTime = performance.now();
+    lastSpawnTime = performance.now(); // Initialize lastSpawnTime for trySpawnTarget
+    spawnInterval = 2500; // Initialize spawnInterval
     
     if (scene && scene.children) {
       console.log("[DEBUG] Scene children just before first animate call:", scene.children.map(c => c.type + (c.userData && c.userData.type ? ` (${c.userData.type})` : '')));
