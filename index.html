@@ -257,8 +257,8 @@
 
   <div id="instructions">
     <p>DRAG or A/D KEYS to Strafe</p>
-    <p>TAP SCREEN to Shoot | DOUBLE-CLICK to Reload</p>
-    <p>SHOOT RED ENEMIES • COLLECT BULLET POWER-UPS</p>
+    <p>TAP SCREEN to Shoot</p>
+    <p>SHOOT RED ENEMIES • COLLECT POWER-UPS TO RELOAD</p>
     <p>WATCH TARGETS EXPLODE ON HIT!</p>
   </div>
 
@@ -423,58 +423,59 @@
           return null;
       }
 
-      if (!isEnemy) { // POWER-UP - Sprite
-          console.log("[DEBUG] createTarget: Attempting to create POWER-UP sprite with texture 'powerup.png'.");
+      if (!isEnemy) { // POWER-UP (Reload Pack)
+          console.log("[DEBUG] createTarget: Attempting to create RELOAD POWER-UP sprite with 'powerup.png'.");
 
-          const planeWidth = 1.5;  // <<< ADJUST THIS for your 256x256 powerup.png visual size >>>
-          const planeHeight = 1.5; // <<< ADJUST THIS >>>
+          const textureFile = 'powerup.png';
+          const planeColor = 0x44ccff; 
 
-          const powerupGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+          const planeWidth = 1.8;  // <<< ADJUST THIS for your 256x256 powerup.png visual size >>>
+          const planeHeight = 1.8; // <<< ADJUST THIS >>>
+
           const powerupMaterial = new THREE.MeshBasicMaterial({
-              // map will be set by texture loader
               transparent: true,
               alphaTest: 0.1,
               side: THREE.DoubleSide,
-              color: 0x00cc44 // Bright green fallback/tint
+              color: planeColor 
           });
 
           textureLoader.load(
-              'powerup.png',
+              textureFile,
               (loadedTexture) => { 
-                  console.log("[SUCCESS] powerup.png texture LOADED!", loadedTexture);
+                  console.log(`[SUCCESS] ${textureFile} texture LOADED!`);
                   powerupMaterial.map = loadedTexture;
-                  powerupMaterial.color.set(0xffffff); // Reset tint to show texture's colors
+                  powerupMaterial.color.set(0xffffff); 
                   powerupMaterial.needsUpdate = true;
               },
               undefined,
               (err) => { 
-                  console.error("[CRITICAL FAILURE] powerup.png texture FAILED to load. Check path/file.", err); 
+                  console.error(`[CRITICAL FAILURE] ${textureFile} texture FAILED to load.`, err); 
               }
           );
           
-          const powerupPlane = new THREE.Mesh(powerupGeometry, powerupMaterial);
+          const powerupPlane = new THREE.Mesh(new THREE.PlaneGeometry(planeWidth, planeHeight), powerupMaterial);
 
           const laneXPowerUp = (Math.floor(Math.random() * 3) - 1) * 6;
-          const zPosPowerUp = -(Math.random() * 30 + 40); 
-          powerupPlane.position.set(laneXPowerUp, 1.2, zPosPowerUp); 
+          const zPosPowerUp = -(Math.random() * 30 + 50);
+          powerupPlane.position.set(laneXPowerUp, 1.2, zPosPowerUp);
 
           powerupPlane.userData = {
-              type: 'powerup', 
-              subType: 'ammo', 
+              type: 'powerup',
+              subType: 'reload_pack', 
               hit: false,
               timer: 0,
-              isBillboard: true 
+              isBillboard: true
           };
 
           scene.add(powerupPlane); targets.push(powerupPlane);
-          console.log("[DEBUG] Power-up PLANE added. Pos:", powerupPlane.position.toArray().join(','), "World Size:", planeWidth, "x", planeHeight);
+          console.log(`[DEBUG] RELOAD POWER-UP PLANE added. Pos:`, powerupPlane.position.toArray().join(','), "World Size:", planeWidth, "x", planeHeight);
           return powerupPlane;
 
       } else { // ENEMY PLANE
           console.log("[DEBUG] createTarget: Attempting to create ENEMY PLANE with texture 'enemy1.png'.");
 
-          const planeWidth = 3.0;  // Increased for testing - ADJUST THIS
-          const planeHeight = 3.0; // Increased for testing - ADJUST THIS
+          const planeWidth = 3.0;  // Test size, adjust as needed
+          const planeHeight = 3.0; // Test size, adjust as needed
 
           const enemyGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
           const enemyMaterial = new THREE.MeshBasicMaterial({
@@ -495,7 +496,7 @@
               },
               undefined, 
               function onError(err) { 
-                  console.error("[CRITICAL FAILURE] enemy1.png texture FAILED to load. Check path/file. Using fallback color.", err);
+                  console.error("[CRITICAL FAILURE] enemy1.png texture FAILED to load for enemy. Using fallback color.", err);
               }
           );
           
@@ -637,35 +638,33 @@
         return projectile;
     }
 
-    // SIMPLIFIED trySpawnTarget for testing
     function trySpawnTarget(now) {
         const maxEnemies = 5;
-        const maxPowerups = 2;
+        const maxReloadPacks = 1; 
+
         let currentEnemies = targets.filter(t => t.userData.type === 'enemy').length;
-        let currentPowerups = targets.filter(t => t.userData.type === 'powerup').length;
+        let currentReloadPacks = targets.filter(t => t.userData.type === 'powerup' && t.userData.subType === 'reload_pack').length;
 
         if (currentEnemies < maxEnemies) {
-            if (now - lastSpawnTime > spawnInterval) { 
+            if (now - lastSpawnTime > spawnInterval) {
                 createTarget(true); 
                 lastSpawnTime = now;
-                spawnInterval = Math.max(800, spawnInterval * 0.985); 
-                // console.log("[DEBUG] trySpawnTarget: Spawned ENEMY. New interval:", spawnInterval);
+                spawnInterval = Math.max(800, spawnInterval * 0.985);
             }
         }
 
-        if (currentPowerups < maxPowerups) {
-            // Use a slightly different timer or probability for powerups to make them less frequent than enemies
-            if (now - lastSpawnTime > (spawnInterval + 2000) && Math.random() < 0.3) { 
-                createTarget(false); 
-                console.log("[DEBUG] trySpawnTarget: Spawned POWERUP.");
-                // Don't reset lastSpawnTime here if you want independent timing from enemies,
-                // or do reset if you want them to compete for the spawn slot.
-                // For now, let them share lastSpawnTime
+        if (currentReloadPacks < maxReloadPacks) {
+            if (now - lastSpawnTime > 7000 && Math.random() < 0.20) { 
+                createTarget(false); // This will now create the 'reload_pack' type by default
                 lastSpawnTime = now; 
             }
         }
     }
     
+    // Remove dblclick listener for reload
+    // renderer.domElement.removeEventListener('dblclick', previousDblClickListener); // If you had one
+
+    // Input handlers (pointer, keyboard)
     let isDragging = false, dragStartX = 0, cameraStartX = 0;
     let pointerDownTime = 0;
     let pointerDownX = 0;
@@ -723,12 +722,10 @@
         if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') lane = Math.max(-1, lane - 1);
         if(e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') lane = Math.min(1, lane + 1);
         if(e.code === 'Space' || e.key.toLowerCase() === 'w' || e.key === 'Enter') { e.preventDefault(); handleShoot(); }
-        if(e.key.toLowerCase() === 'r') handleReload();
+        if(e.key.toLowerCase() === 'r') handleReload(false); // Call with false for manual attempt
     });
     
-    renderer.domElement.addEventListener('dblclick', (e) => {
-        if (e.target === renderer.domElement && gameRunningGlobal) handleReload();
-    });
+    // No dblclick listener for reload anymore
 
     function showLevelUp() { 
       const levelUpEl = document.getElementById('level-up');
@@ -773,19 +770,33 @@
       const direction = new THREE.Vector3(0,0,-1); direction.applyQuaternion(camera.quaternion);
       projectile.userData = { velocity: direction.multiplyScalar(1.8), timer: 100 };
     }
-    function handleReload() { 
-      if(ammo < maxAmmo && gameRunningGlobal && camera && scene) {
-        if (reloadSound) { 
-            reloadSound.currentTime = 0;
-            reloadSound.play().catch(e => console.warn("Error playing reload sound:", e));
+
+    function handleReload(isFromPowerup = false) { // Flag to distinguish powerup vs manual
+        if (!isFromPowerup) {
+             console.log("[INFO] Manual reload (R key) disabled. Collect a power-up!");
+             // Optionally, add a sound effect for failed manual reload attempt
+             return; 
         }
 
-        ammo = maxAmmo; const originalZ = camera.position.z; camera.position.z += 0.2; 
-        setTimeout(() => { if(camera) camera.position.z = originalZ; }, 120);
-        const reloadFlash = new THREE.PointLight(0x0066ff, 8, 15);
-        reloadFlash.position.copy(camera.position); scene.add(reloadFlash);
-        setTimeout(() => { if(scene) scene.remove(reloadFlash); reloadFlash.dispose(); }, 250);
-      }
+        if (ammo < maxAmmo && gameRunningGlobal && camera && scene) {
+            console.log("[RELOAD] Reloading ammo via power-up!");
+            if (reloadSound) {
+                reloadSound.currentTime = 0;
+                reloadSound.play().catch(e => console.warn("Error playing reload sound:", e));
+            }
+
+            ammo = maxAmmo; 
+            const originalZ = camera.position.z;
+            camera.position.z += 0.2;
+            setTimeout(() => { if (camera) camera.position.z = originalZ; }, 120);
+            const reloadFlash = new THREE.PointLight(0x0066ff, 8, 15);
+            reloadFlash.position.copy(camera.position);
+            scene.add(reloadFlash);
+            setTimeout(() => { if (scene) scene.remove(reloadFlash); reloadFlash.dispose(); }, 250);
+        } else if (ammo >= maxAmmo && isFromPowerup) {
+            console.log("[INFO] Ammo already full, reload power-up had no effect.");
+            // Optionally play a different sound or give a small score bonus for collecting when full
+        }
     }
     
     function drawHUD() {
@@ -886,66 +897,29 @@
           } return true;
         });
 
-        projectiles = projectiles.filter(p => { 
-          p.position.add(p.userData.velocity); p.userData.timer--;
-          const pBox = new THREE.Box3().setFromObject(p); let hitSomething = false;
-          for (let i = targets.length - 1; i >= 0; i--) {
-            const t = targets[i]; if (t.userData.hit) continue;
-            const tBox = new THREE.Box3().setFromObject(t);
-            if (pBox.intersectsBox(tBox)) {
-              // t.userData.hit = true; t.userData.timer = 20; // Common hit logic below
-              const nowPerf = performance.now();
-              
-              if(t.userData.type === 'enemy') {
-                t.userData.hit = true; t.userData.timer = 20; 
-                combo = (nowPerf - lastHitTime < 2000) ? combo + 1 : 1; 
-                lastHitTime = nowPerf;
-                createExplosion(t.position.x, t.position.y, t.position.z); 
-                score += 10 + Math.floor(combo/3); if(combo > 2) showCombo(combo);
-                if(score >= scoreToNextLevel) {
-                    console.log(`[LEVEL UP] Score: ${score}, NextLevelScore: ${scoreToNextLevel}, Old Level: ${level}`);
-                    level++; 
-                    scoreToNextLevel += level * 100; 
-                    console.log(`           New Level: ${level}, New NextLevelScore: ${scoreToNextLevel}`);
-                    maxAmmo += 5; 
-                    ammo = maxAmmo; 
-                    health = Math.min(100, health + 30); 
-                    showLevelUp();
-                }
-              } else if (t.userData.type === 'powerup') {
-                t.userData.hit = true; t.userData.timer = 1; // Remove power-up quickly
-                // combo = 0; // Optional: Reset combo on powerup hit
-                // lastHitTime = nowPerf; // Optional: Update last hit time for combo logic
-                if (t.userData.subType === 'ammo') {
-                    const ammoGained = Math.floor(maxAmmo / 3) + 5; 
-                    ammo = Math.min(maxAmmo, ammo + ammoGained); 
-                    console.log(`[POWERUP] Ammo collected! Gained: ${ammoGained}, Total Ammo: ${ammo}`);
-                }
-              }
-              hitSomething = true; break;
-            }
-          }
-          if (hitSomething || p.userData.timer <= 0 || p.position.z < -100) {
-            if(scene) scene.remove(p); 
-            if(p.geometry) p.geometry.dispose(); 
-            if(p.material) p.material.dispose(); 
-            return false;
-          } return true;
-        });
-
         targets = targets.filter(t => { 
           t.position.z += 0.1 * difficulty; 
-          if (t.userData && t.userData.isBillboard && camera) { // Check for camera
+          if (t.userData && t.userData.isBillboard && camera) { 
              t.quaternion.copy(camera.quaternion);
           }
-          if (t.position.z > camera.position.z + 1) { // Target went past player
+
+          // Player Collision with Power-ups (reload_pack)
+          if (t.userData.type === 'powerup' && t.userData.subType === 'reload_pack' && !t.userData.hit) {
+              const distanceToPlayerZ = Math.abs(t.position.z - camera.position.z);
+              const powerupLane = Math.round(t.position.x / 6);
+              if (distanceToPlayerZ < 1.0 && powerupLane === lane) { 
+                  t.userData.hit = true; 
+                  t.userData.timer = 1;  // Mark for quick removal
+                  handleReload(true); // Player collided, trigger reload
+              }
+          }
+          
+          if (t.position.z > camera.position.z + 1) { 
             if(!t.userData.hit){
               if(t.userData.type === 'enemy') { 
                   health -= 15; 
                   combo = 0; 
-                  console.log("Enemy missed, health:", health);
               }
-              // No penalty for missing a power-up
             }
             if(scene) scene.remove(t); 
             if(t.material) { 
@@ -955,7 +929,7 @@
             if (t.geometry) t.geometry.dispose(); 
             return false;
           }
-          if(t.userData.hit){ // Target was hit, fade out based on its timer
+          if(t.userData.hit){ 
             if (t.material && t.material.opacity !== undefined) t.material.opacity = Math.max(0, (t.userData.timer / 20));
             t.userData.timer--;
             if(t.userData.timer <= 0) {
@@ -969,6 +943,45 @@
             }
           } return true;
         });
+        
+        projectiles = projectiles.filter(p => { 
+          p.position.add(p.userData.velocity); p.userData.timer--;
+          const pBox = new THREE.Box3().setFromObject(p); let hitSomething = false;
+          for (let i = targets.length - 1; i >= 0; i--) {
+            const t = targets[i]; 
+            if (t.userData.hit) continue; 
+            // Projectiles should only interact with enemies
+            if (t.userData.type !== 'enemy') continue; 
+
+            const tBox = new THREE.Box3().setFromObject(t);
+            if (pBox.intersectsBox(tBox)) {
+              t.userData.hit = true; t.userData.timer = 20; 
+              const nowPerf = performance.now();
+              combo = (nowPerf - lastHitTime < 2000) ? combo + 1 : 1; 
+              lastHitTime = nowPerf;
+              createExplosion(t.position.x, t.position.y, t.position.z); 
+              score += 10 + Math.floor(combo/3); if(combo > 2) showCombo(combo);
+              if(score >= scoreToNextLevel) {
+                  console.log(`[LEVEL UP] Score: ${score}, NextLevelScore: ${scoreToNextLevel}, Old Level: ${level}`);
+                  level++; 
+                  scoreToNextLevel += level * 100; 
+                  console.log(`           New Level: ${level}, New NextLevelScore: ${scoreToNextLevel}`);
+                  maxAmmo += 5; 
+                  ammo = maxAmmo; 
+                  health = Math.min(100, health + 30); 
+                  showLevelUp();
+              }
+              hitSomething = true; break;
+            }
+          }
+          if (hitSomething || p.userData.timer <= 0 || p.position.z < -100) {
+            if(scene) scene.remove(p); 
+            if(p.geometry) p.geometry.dispose(); 
+            if(p.material) p.material.dispose(); 
+            return false;
+          } return true;
+        });
+
         if(health <= 0) { health = 0; doGameOver(); }
       }
       if(renderer && camera && scene) renderer.render(scene,camera); 
@@ -976,9 +989,9 @@
     }
 
     gameStartTime = performance.now(); 
-    console.log("[DEBUG] Spawning ONE test enemy plane and ONE powerup...");
+    console.log("[DEBUG] Spawning ONE test enemy plane and ONE test powerup (reload pack)...");
     createTarget(true); 
-    createTarget(false); 
+    createTarget(false); // This will now create the 'reload_pack' powerup
     lastSpawnTime = performance.now(); 
     spawnInterval = 2500; 
     
