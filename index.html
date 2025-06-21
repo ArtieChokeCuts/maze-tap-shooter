@@ -13,14 +13,13 @@
       font-family: 'Orbitron', sans-serif;
       background: linear-gradient(to bottom, #0a0a2a, #1a1a4a);
       color: white;
-      touch-action: none; /* Important for preventing default touch behaviors like pinch-zoom */
+      touch-action: none; 
       height: 100vh;
     }
     canvas { position: absolute; top: 0; left: 0; display: block; }
     canvas.webgl { z-index: 0; }
     canvas#hud { z-index: 1; pointer-events: none; }
 
-    /* Original LOADING & START/OVER SCREENS Styles (some will be overridden or complemented by new CSS) */
     #loading, #start-screen, #game-over {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%; display: none;
@@ -29,9 +28,9 @@
       text-align: center;
       background: rgba(0, 0, 20, 0.95);
     }
-    #loading { display: flex; } /* This will be styled further by new CSS */
+    #loading { display: flex; } 
     
-    #start-screen { display: none; } /* Initially hidden, shown after loading */
+    #start-screen { display: none; } 
     h1, h2 { text-shadow: 0 0 15px currentColor; }
     #start-screen h1 { 
       font-size: 4rem; 
@@ -89,6 +88,7 @@
       margin-bottom:3rem;
       text-shadow: 0 0 10px #00ffcc;
     }
+    /* Default #instructions style (for desktop or if shown in-game on mobile via JS) */
     #instructions { 
       position:absolute; 
       bottom:20px; 
@@ -99,6 +99,7 @@
       max-width:500px; 
       padding:0 20px;
       line-height: 1.6;
+      /* pointer-events: none; /* Add if it should not intercept clicks during gameplay */
     }
     #instructions p { 
       margin-top: 0.5em; 
@@ -194,14 +195,58 @@
         
     @media (max-width: 768px) {
       #mobile-controls { display: flex; }
-      #instructions { bottom: 120px; }
-      #start-screen h1 { font-size: 2.5rem; }
       #game-over h2 { font-size: 3rem; }
       #final-score { font-size: 2rem; }
-      #start-button, #restart-button { padding: 12px 30px; font-size: 1.2rem; }
       #level-up { font-size: 2rem; }
       #combo-display { font-size: 1.8rem; }
       #orientation-warning { font-size: 1.5rem; } 
+
+      /* --- START SCREEN MOBILE REFINEMENTS (Button Only) --- */
+      #start-screen {
+        padding: 20px 15px; 
+        justify-content: center; 
+        align-items: center; 
+        display: flex; 
+        flex-direction: column; 
+      }
+
+      #start-screen h1 { 
+        font-size: 2.2rem; 
+        margin-bottom: 2rem; 
+        line-height: 1.25; 
+        text-align: center; 
+      }
+
+      #start-button, #restart-button { /* General mobile button styling */
+        padding: 12px 30px; 
+        font-size: 1.1rem;  
+        margin: 1rem 0;     
+      }
+      
+      #start-screen #start-button {
+        margin-top: 0; 
+        margin-bottom: 1rem; 
+      }
+
+      /* Hide instructions specifically on the mobile start screen */
+      #start-screen #instructions {
+        display: none; 
+      }
+      /* --- END START SCREEN MOBILE REFINEMENTS (Button Only) --- */
+
+      /* This rule positions #instructions if it's NOT in #start-screen (e.g., during gameplay if made visible) */
+      /* If you don't intend to show instructions during mobile gameplay, this rule might not be needed */
+      /* or could be combined with a class that shows it. */
+      #instructions { 
+        position: absolute; 
+        bottom: 120px; /* Position above mobile controls if shown */
+        /* If instructions are shown during gameplay on mobile, ensure they are readable: */
+        /* font-size: 0.8rem; */
+        /* max-width: 90%; */
+      }
+      #instructions p {
+        /* font-size: 0.75rem; */ /* If shown in-game on mobile */
+      }
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
@@ -224,6 +269,7 @@
   <div id="start-screen">
     <h1>EXPLOSIVE TARGET SHOOTER</h1>
     <button id="start-button">START MISSION</button>
+    <!-- Instructions are still in HTML for desktop / potential future use -->
     <div id="instructions">
       <p>DRAG or A/D KEYS to Strafe</p>
       <p>TAP SCREEN to Shoot | DOUBLE-CLICK to Reload</p>
@@ -265,9 +311,9 @@
   shootSound.volume = 0.5; 
   const explosionSound = new Audio('explosion.mp3'); 
   const reloadSound = new Audio('reload.mp3'); 
-  const backgroundMusic = new Audio('backgroundmusic.mp3'); // Added
-  backgroundMusic.loop = true; // Added
-  backgroundMusic.volume = 0.9; // Added - Adjust as needed
+  const backgroundMusic = new Audio('backgroundmusic.mp3'); 
+  backgroundMusic.loop = true; 
+  backgroundMusic.volume = 0.3; 
   // --- END AUDIO ASSETS ---
 
   function generateEnemySpriteSheet() {
@@ -348,18 +394,15 @@
     
     if (isPortrait) {
       orientationWarningEl.style.display = 'flex';
-      if (gameRunningGlobal && !backgroundMusic.paused) { // Pause music if game was running
+      if (gameRunningGlobal && !backgroundMusic.paused) { 
           backgroundMusic.pause();
       }
       gameRunningGlobal = false; 
-    } else { // Landscape
+    } else { 
       orientationWarningEl.style.display = 'none';
-      // Check if a game was actually initialized (renderer exists)
-      // and start screen is not visible (meaning game was in progress or past start screen)
-      // and gameRunningGlobal is false (meaning it was paused by orientation)
       if (!gameRunningGlobal && window.renderer && !document.getElementById('start-screen').style.display.includes('flex')) {
          gameRunningGlobal = true;
-         if (backgroundMusic.paused) { // Resume music if it was paused
+         if (backgroundMusic.paused) { 
             backgroundMusic.play().catch(e => console.warn("Error resuming background music:", e));
          }
       }
@@ -427,7 +470,6 @@
   function initGame(){
     let scene = new THREE.Scene();
 
-    // Start or resume background music
     if (backgroundMusic.paused) {
         backgroundMusic.play().catch(e => console.warn("Error playing background music:", e));
     }
@@ -779,7 +821,6 @@
       if (!backgroundMusic.paused) {
           backgroundMusic.pause();
       }
-      // Optional: backgroundMusic.currentTime = 0; // Reset music to start for next game
       setTimeout(() => window.showGameOver(), 500);
     }
     
