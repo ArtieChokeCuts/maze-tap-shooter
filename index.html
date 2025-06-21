@@ -567,4 +567,488 @@
 
       const light1 = new THREE.PointLight(0x0066ff, 2, 100);
       light1.position.set(15, 5, -50); scene.add(light1);
-      cons
+      const light2 = new THREE.PointLight(0xff6600, 2, 100);
+      light2.position.set(-15, 5, -80); scene.add(light2);
+
+      return function animateTunnelLights(time) { 
+        light1.intensity = 1.5 + Math.sin(time * 0.002) * 0.5;
+        light2.intensity = 1.5 + Math.cos(time * 0.003) * 0.5;
+        light1.position.z = -50 + Math.sin(time * 0.001) * 20;
+        light2.position.z = -80 + Math.cos(time * 0.0015) * 20;
+      };
+    }
+
+    if(window.renderer){ 
+      cancelAnimationFrame(window.animId);
+      if (window.renderer.domElement.parentNode) document.body.removeChild(window.renderer.domElement);
+      targets.forEach(t => { 
+          if (t.geometry) t.geometry.dispose(); 
+          if (t.material) { 
+              if (t.material.map) t.material.map.dispose(); 
+              t.material.dispose(); 
+          }
+      });
+      projectiles.forEach(p => {
+          if (p.geometry) p.geometry.dispose(); if (p.material) p.material.dispose();
+      });
+      explosions.forEach(e => e.particles.forEach(particleMesh => {
+          if (particleMesh.parent) particleMesh.parent.remove(particleMesh);
+          if (particleMesh.geometry) particleMesh.geometry.dispose();
+          if (particleMesh.material) particleMesh.material.dispose();
+      }));
+      window.renderer.dispose();
+    }
+
+    targets = []; projectiles = []; explosions = [];
+    gameRunningGlobal = true; 
+
+    scene.background = new THREE.Color(0x111133);
+    // scene.fog = new THREE.FogExp2(0x111133, 0.02); 
+    console.log("[DEBUG] Scene fog is currently disabled for testing.");
+
+    camera   = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+    camera.position.set(0,2,5);
+    camera.lookAt(0, 1.5, -20); 
+    console.log("[DEBUG] Camera forced to lookAt (0, 1.5, -20)");
+    window.camera = camera; 
+
+    renderer = new THREE.WebGLRenderer({ antialias:true, alpha: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.domElement.classList.add('webgl');
+    document.body.appendChild(renderer.domElement);
+    window.renderer = renderer; 
+
+    const hudCanvas = document.getElementById('hud');
+    if (!hudCanvas) { console.error("HUD canvas not found!"); return; } 
+    hudCanvas.width  = innerWidth;
+    hudCanvas.height = innerHeight;
+    ctx = hudCanvas.getContext('2d');
+    
+    let health = 100, score = 0, penalties = 0, ammo = 15, maxAmmo = 15, lane = 0;
+    let lastSpawnTime = 0, spawnInterval = 2500;
+    let lastPowerupSpawnTime = 0, powerupSpawnInterval = 6000; // Init powerup timers
+    let difficulty = 1, combo = 0, lastHitTime = 0; 
+    let level = 1, scoreToNextLevel = 100, levelUpDisplayTime = 0, comboDisplayTime = 0;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8)); 
+    const d1 = new THREE.DirectionalLight(0xffffff, 1);
+    d1.position.set(5,10,5); scene.add(d1);
+    
+    const muzzleFlash = new THREE.PointLight(0xffff00, 0, 10);
+    muzzleFlash.position.set(0,0,-0.5); 
+    camera.add(muzzleFlash);
+    if (!camera.parent) scene.add(camera); 
+
+    const grid = new THREE.GridHelper(300,60,0x00ff88,0x224444);
+    scene.add(grid);
+    
+    animateLights = createTunnel(); 
+    
+    function createProjectile() { 
+        if(!scene || !camera) return null;
+        const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+        const material = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.9 });
+        const projectile = new THREE.Mesh(geometry, material);
+        const projectileOffset = new THREE.Vector3(0, -0.2, -1);
+        projectileOffset.applyQuaternion(camera.quaternion);
+        projectile.position.copy(camera.position).add(projectileOffset);
+        scene.add(projectile); projectiles.push(projectile);
+        return projectile;
+    }
+
+    function trySpawnTarget(now) {
+        const maxEnemies = 5;
+        const maxReloadPacks = 1;
+        const maxHealthPacks = 1;
+
+        let currentEnemies = targets.filter(t => t.userData.type === 'enemy').length;
+        let currentReloadPacks = targets.filter(t => t.userData.type === 'powerup' && t.userData.subType === 'reload_pack').length;
+        let currentHealthPacks = targets.filter(t => t.userData.type === 'powerup' && t.userData.subType === 'health_pack').length;
+
+        if (currentEnemies < maxEnemies) {
+            if (now - lastSpawnTime > spawnInterval) {
+                createTarget(true);
+                lastSpawnTime = now;
+                spawnInterval = Math.max(800, spawnInterval * 0.985);
+            }
+        }
+
+        if (now - lastPowerupSpawnTime > powerupSpawnInterval) {
+            let powerupSpawnedThisCycle = false;
+            if (currentHealthPacks < maxHealthPacks && Math.random() < 0.25) { 
+                createTarget(false, 'health_pack');
+                powerupSpawnedThisCycle = true;
+            }
+            else if (currentReloadPacks < maxReloadPacks && Math.random() < 0.35) { 
+                createTarget(false, 'reload_pack');
+                powerupSpawnedThisCycle = true;
+            }
+
+            if (powerupSpawnedThisCycle) {
+                lastPowerupSpawnTime = now; 
+                powerupSpawnInterval = Math.max(4000, powerupSpawnInterval * 0.995); 
+            }
+        }
+    }
+    
+    let isDragging = false, dragStartX = 0, cameraStartX = 0;
+    let pointerDownTime = 0;
+    let pointerDownX = 0;
+    const TAP_MAX_DURATION = 250; 
+    const TAP_MAX_DISTANCE = 15;  
+
+    renderer.domElement.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || !gameRunningGlobal) return; 
+      isDragging = true; 
+      dragStartX = e.clientX; 
+      cameraStartX = camera.position.x;
+      pointerDownTime = performance.now();
+      pointerDownX = e.clientX;
+    }, { passive: false });
+
+    renderer.domElement.addEventListener('pointermove', e => {
+      if (!isDragging || !gameRunningGlobal) return;
+      const distanceMovedSinceDown = Math.abs(e.clientX - pointerDownX);
+      if (distanceMovedSinceDown < TAP_MAX_DISTANCE && performance.now() - pointerDownTime < TAP_MAX_DURATION) {
+          return; 
+      }
+      const dx = e.clientX - dragStartX;
+      const targetX = cameraStartX - dx * 0.035;
+      camera.position.x = THREE.MathUtils.clamp(targetX, -10, 10);
+      lane = Math.max(-1, Math.min(1, Math.round(camera.position.x / 6)));
+    }, { passive: false });
+
+    renderer.domElement.addEventListener('pointerup', e => {
+      if (e.button !== 0 || !gameRunningGlobal) {
+        if (isDragging) isDragging = false; 
+        return;
+      }
+      if (isDragging) { 
+        const upTime = performance.now();
+        const duration = upTime - pointerDownTime;
+        const distanceMoved = Math.abs(e.clientX - pointerDownX);
+        if (duration < TAP_MAX_DURATION && distanceMoved < TAP_MAX_DISTANCE) {
+          if (e.target === renderer.domElement) { 
+            handleShoot();
+          }
+        }
+      }
+      isDragging = false; 
+    });
+
+    const leftBtn = document.getElementById('left-btn');
+    const rightBtn = document.getElementById('right-btn');
+    const shootBtn = document.getElementById('shoot-btn'); 
+    if(leftBtn) leftBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); if(gameRunningGlobal) lane = Math.max(-1, lane - 1); });
+    if(rightBtn) rightBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); if(gameRunningGlobal) lane = Math.min(1, lane + 1); });
+    if(shootBtn) shootBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); handleShoot(); });
+    
+    window.addEventListener('keydown', e => {
+        if (!gameRunningGlobal) return;
+        if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') lane = Math.max(-1, lane - 1);
+        if(e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') lane = Math.min(1, lane + 1);
+        if(e.code === 'Space' || e.key.toLowerCase() === 'w' || e.key === 'Enter') { e.preventDefault(); handleShoot(); }
+        if(e.key.toLowerCase() === 'r') handleReload(false); 
+    });
+    
+    function showLevelUp() { 
+      const levelUpEl = document.getElementById('level-up');
+      if (levelUpEl) { 
+        levelUpEl.textContent = `LEVEL ${level}!`;
+        levelUpEl.style.transform = 'translate(-50%, -50%) scale(0.5)';
+        levelUpEl.style.opacity = '1';
+        setTimeout(() => { if(levelUpEl) levelUpEl.style.transform = 'translate(-50%, -50%) scale(1.2)'; }, 50);
+        setTimeout(() => { if(levelUpEl) levelUpEl.style.transform = 'translate(-50%, -50%) scale(1)'; }, 400);
+        levelUpDisplayTime = performance.now();
+      }
+    }
+    function showCombo(comboValue) { 
+      const comboEl = document.getElementById('combo-display');
+      if (comboEl) { 
+        comboEl.textContent = `COMBO x${comboValue}!`;
+        comboEl.style.transform = 'translate(-50%, -50%) scale(1.5)';
+        comboEl.style.opacity = '1';
+        setTimeout(() => { if(comboEl) comboEl.style.transform = 'translate(-50%, -50%) scale(1)'; }, 50);
+        comboDisplayTime = performance.now();
+      }
+    }
+
+    function handleShoot() { 
+      if(!gameRunningGlobal || ammo <= 0 || !camera) return;
+      
+      if (ammo <=0 && gameRunningGlobal) { 
+          const originalZ = camera.position.z;
+          camera.position.z += 0.1; 
+          setTimeout(() => { if(camera) camera.position.z = originalZ; }, 80);
+          return;
+      }
+      if (shootSound) { 
+        shootSound.currentTime = 0;
+        shootSound.play().catch(e => console.warn("Error playing shoot sound:", e));
+      }
+
+      ammo--;
+      muzzleFlash.intensity = 15; setTimeout(() => { muzzleFlash.intensity = 0; }, 60);
+      const projectile = createProjectile();
+      if (!projectile) return; 
+      const direction = new THREE.Vector3(0,0,-1); direction.applyQuaternion(camera.quaternion);
+      projectile.userData = { velocity: direction.multiplyScalar(1.8), timer: 100 };
+    }
+
+    function handleReload(isFromPowerup = false) { 
+        if (!isFromPowerup) {
+             console.log("[INFO] Manual reload (R key) disabled. Collect a power-up!");
+             return; 
+        }
+
+        if (ammo < maxAmmo && gameRunningGlobal && camera && scene) {
+            console.log("[RELOAD] Reloading ammo via power-up!");
+            if (reloadSound) {
+                reloadSound.currentTime = 0;
+                reloadSound.play().catch(e => console.warn("Error playing reload sound:", e));
+            }
+
+            ammo = maxAmmo; 
+            const originalZ = camera.position.z;
+            camera.position.z += 0.2;
+            setTimeout(() => { if (camera) camera.position.z = originalZ; }, 120);
+            const reloadFlash = new THREE.PointLight(0x0066ff, 8, 15);
+            reloadFlash.position.copy(camera.position);
+            scene.add(reloadFlash);
+            setTimeout(() => { if (scene) scene.remove(reloadFlash); reloadFlash.dispose(); }, 250);
+        } else if (ammo >= maxAmmo && isFromPowerup) {
+            console.log("[INFO] Ammo already full, reload power-up had no effect.");
+        }
+    }
+    
+    function drawHUD() {
+      if (!ctx) return; 
+      ctx.clearRect(0,0,innerWidth,innerHeight);
+      const gameOverEl = document.getElementById('game-over');
+      if (!gameRunningGlobal && (window.finalScore === undefined || window.finalScore === null) && gameOverEl && !gameOverEl.style.display.includes('flex')) return;
+      
+      ctx.strokeStyle = 'rgba(0,255,255,0.8)'; ctx.lineWidth = 3;
+      const reticleSize = 20 + Math.sin(performance.now()/200)*3; const gap = 8;
+      ctx.beginPath(); ctx.arc(innerWidth/2, innerHeight/2, reticleSize*1.5, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(innerWidth/2 - reticleSize - gap, innerHeight/2 - reticleSize - gap);
+      ctx.lineTo(innerWidth/2 - gap, innerHeight/2 - gap);
+      ctx.moveTo(innerWidth/2 + reticleSize + gap, innerHeight/2 - reticleSize - gap);
+      ctx.lineTo(innerWidth/2 + gap, innerHeight/2 - gap);
+      ctx.moveTo(innerWidth/2 - reticleSize - gap, innerHeight/2 + reticleSize + gap);
+      ctx.lineTo(innerWidth/2 - gap, innerHeight/2 + gap);
+      ctx.moveTo(innerWidth/2 + reticleSize + gap, innerHeight/2 + reticleSize + gap);
+      ctx.lineTo(innerWidth/2 + gap, innerHeight/2 + gap);
+      ctx.stroke();
+      
+      const panelWidth = 260; ctx.save();
+      ctx.fillStyle = 'rgba(0,20,40,0.6)'; ctx.strokeStyle = 'rgba(0,255,255,0.4)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(20, 20, panelWidth, 150, [0, 15, 15, 0]); ctx.fill(); ctx.stroke();
+      
+      ctx.fillStyle = 'rgba(0,50,100,0.4)'; ctx.beginPath();
+      ctx.roundRect(30, 30, panelWidth-20, 25, 12); ctx.fill();
+      
+      const healthWidth = (panelWidth-20) * (health/100);
+      const healthGrad = ctx.createLinearGradient(30, 30, 30+healthWidth, 30);
+      healthGrad.addColorStop(0, '#00ff88'); healthGrad.addColorStop(1, '#0066ff');
+      ctx.fillStyle = healthGrad; ctx.beginPath();
+      ctx.roundRect(30, 30, Math.max(0, healthWidth), 25, 12); ctx.fill(); 
+      
+      ctx.font = 'bold 16px Orbitron'; ctx.fillStyle = '#ffffff';
+      ctx.fillText(`HEALTH: ${Math.floor(health)}%`, 40, 50);
+      ctx.font = 'bold 18px Orbitron'; ctx.fillStyle = '#00ffff';
+      ctx.fillText(`SCORE: ${score}`, 40, 80);
+      ctx.fillText(`LEVEL: ${level}`, 40, 110);
+      
+      ctx.fillStyle = ammo > maxAmmo/3 ? 'rgba(0,255,255,0.7)' : 'rgba(255,50,50,0.7)';
+      ctx.font = 'bold 20px Orbitron'; ctx.fillText(`AMMO: ${ammo}/${maxAmmo}`, 40, 140);
+      ctx.restore();
+    }
+
+    function doGameOver(){ 
+      gameRunningGlobal = false; 
+      window.finalScore = score;
+      if (backgroundMusic && !backgroundMusic.paused) {
+          backgroundMusic.pause();
+      }
+      setTimeout(() => {
+          if (typeof window.showGameOver === 'function') window.showGameOver();
+      }, 500);
+    }
+    
+    let gameStartTime = 0; 
+    function animate(time){ 
+      window.animId = requestAnimationFrame(animate);
+      if (!gameStartTime && time) gameStartTime = time; 
+      const now = performance.now(); 
+      
+      if (typeof animateLights === 'function') animateLights(now);
+
+      const levelUpEl = document.getElementById('level-up');
+      const comboEl = document.getElementById('combo-display');
+
+      if(levelUpDisplayTime > 0 && now - levelUpDisplayTime > 2000) {
+        if(levelUpEl) levelUpEl.style.opacity = '0'; 
+        levelUpDisplayTime = 0;
+      }
+      if(comboDisplayTime > 0 && now - comboDisplayTime > 1500) {
+        if(comboEl) comboEl.style.opacity = '0';
+        comboDisplayTime = 0;
+      }
+
+      if(gameRunningGlobal && camera && scene){ 
+        difficulty = 1 + (now - (gameStartTime || now) ) / 60000; 
+        const targetCameraX = lane * 6;
+        camera.position.x += (targetCameraX - camera.position.x) * 0.12;
+
+        trySpawnTarget(now);
+
+        explosions = explosions.filter(explosion => { 
+          explosion.timer--;
+          explosion.particles.forEach(p_mesh => {
+            p_mesh.position.add(p_mesh.userData.velocity);
+            p_mesh.userData.velocity.multiplyScalar(0.93);
+            if (p_mesh.material.opacity !== undefined) p_mesh.material.opacity = Math.max(0, explosion.timer / 30);
+          });
+          if (explosion.timer <= 0) {
+              explosion.particles.forEach(p_mesh => {
+                  if (p_mesh.parent) p_mesh.parent.remove(p_mesh);
+                  if (p_mesh.geometry) p_mesh.geometry.dispose();
+                  if (p_mesh.material) p_mesh.material.dispose();
+              }); return false;
+          } return true;
+        });
+
+        targets = targets.filter(t => { 
+          t.position.z += 0.1 * difficulty; 
+          if (t.userData && t.userData.isBillboard && camera) { 
+             t.quaternion.copy(camera.quaternion);
+          }
+
+          // Player Collision with Power-ups
+          if (t.userData.type === 'powerup' && !t.userData.hit) {
+              const distanceToPlayerZ = Math.abs(t.position.z - camera.position.z);
+              const powerupLane = Math.round(t.position.x / 6);
+              if (distanceToPlayerZ < 1.0 && powerupLane === lane) { 
+                  t.userData.hit = true; 
+                  t.userData.timer = 1;  
+                  if (t.userData.subType === 'reload_pack') {
+                      handleReload(true); 
+                  } else if (t.userData.subType === 'health_pack') {
+                      const healthGained = 25; 
+                      health = Math.min(100, health + healthGained); 
+                      console.log(`[POWERUP] Health pack collected! Gained: ${healthGained}, Total Health: ${health}`);
+                  }
+              }
+          }
+          
+          if (t.position.z > camera.position.z + 1) { 
+            if(!t.userData.hit){
+              if(t.userData.type === 'enemy') { 
+                  health -= 15; 
+                  combo = 0; 
+              }
+            }
+            if(scene) scene.remove(t); 
+            if(t.material) { 
+                if(t.material.map) t.material.map.dispose(); 
+                t.material.dispose(); 
+            }
+            if (t.geometry) t.geometry.dispose(); 
+            return false;
+          }
+          if(t.userData.hit){ 
+            if (t.material && t.material.opacity !== undefined) t.material.opacity = Math.max(0, (t.userData.timer / 20));
+            t.userData.timer--;
+            if(t.userData.timer <= 0) {
+              if(scene) scene.remove(t); 
+              if(t.material) { 
+                  if(t.material.map) t.material.map.dispose(); 
+                  t.material.dispose(); 
+              }
+               if (t.geometry) t.geometry.dispose(); 
+              return false;
+            }
+          } return true;
+        });
+        
+        projectiles = projectiles.filter(p => { 
+          p.position.add(p.userData.velocity); p.userData.timer--;
+          const pBox = new THREE.Box3().setFromObject(p); let hitSomething = false;
+          for (let i = targets.length - 1; i >= 0; i--) {
+            const t = targets[i]; 
+            if (t.userData.hit) continue; 
+            if (t.userData.type !== 'enemy') continue; 
+
+            const tBox = new THREE.Box3().setFromObject(t);
+            if (pBox.intersectsBox(tBox)) {
+              t.userData.hit = true; t.userData.timer = 20; 
+              const nowPerf = performance.now();
+              combo = (nowPerf - lastHitTime < 2000) ? combo + 1 : 1; 
+              lastHitTime = nowPerf;
+              createExplosion(t.position.x, t.position.y, t.position.z); 
+              score += 10 + Math.floor(combo/3); if(combo > 2) showCombo(combo);
+              if(score >= scoreToNextLevel) {
+                  console.log(`[LEVEL UP] Score: ${score}, NextLevelScore: ${scoreToNextLevel}, Old Level: ${level}`);
+                  level++; 
+                  scoreToNextLevel += level * 100; 
+                  console.log(`           New Level: ${level}, New NextLevelScore: ${scoreToNextLevel}`);
+                  maxAmmo += 5; 
+                  ammo = maxAmmo; 
+                  health = Math.min(100, health + 30); 
+                  showLevelUp();
+              }
+              hitSomething = true; break;
+            }
+          }
+          if (hitSomething || p.userData.timer <= 0 || p.position.z < -100) {
+            if(scene) scene.remove(p); 
+            if(p.geometry) p.geometry.dispose(); 
+            if(p.material) p.material.dispose(); 
+            return false;
+          } return true;
+        });
+
+        if(health <= 0) { health = 0; doGameOver(); }
+      }
+      if(renderer && camera && scene) renderer.render(scene,camera); 
+      if(ctx) drawHUD();
+    }
+
+    gameStartTime = performance.now(); 
+    console.log("[DEBUG] Spawning ONE test enemy plane, ONE reload pack, and ONE health pack...");
+    createTarget(true); 
+    createTarget(false, 'reload_pack'); 
+    createTarget(false, 'health_pack'); 
+    lastSpawnTime = performance.now(); 
+    lastPowerupSpawnTime = performance.now();
+    spawnInterval = 2500; 
+    powerupSpawnInterval = 6000;
+    
+    if (scene && scene.children) {
+      console.log("[DEBUG] Scene children just before first animate call:", scene.children.map(c => c.type + (c.userData && c.userData.type ? ` (${c.userData.type})` : '')));
+    }
+
+    if (typeof animate === 'function') {
+        animate(performance.now());
+        console.log("[DEBUG] Initial animate() called.");
+    } else {
+        console.error("[CRITICAL] animate function is not defined!");
+    }
+  }
+  
+  window.addEventListener('resize', () => {
+    if (!window.renderer || !window.camera) return;
+    window.camera.aspect = window.innerWidth / window.innerHeight;
+    window.camera.updateProjectionMatrix();
+    window.renderer.setSize(window.innerWidth, window.innerHeight);
+    const hud = document.getElementById('hud');
+    if (hud) {
+      hud.width = window.innerWidth;
+      hud.height = window.innerHeight;
+    }
+    handleOrientation(); 
+  });
+  </script>
+</body>
+</html>
