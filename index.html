@@ -1,139 +1,549 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>FPS Target Shooter with Explosions</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-  <!-- Your original CSS remains completely unchanged -->
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      overflow: hidden;
-      font-family: 'Orbitron', sans-serif;
-      background: linear-gradient(to bottom, #0a0a2a, #1a1a4a);
-      color: white;
-      touch-action: none; 
-      height: 100vh;
-    }
-    /* [ALL YOUR ORIGINAL CSS REMAINS EXACTLY THE SAME] */
-  </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-</head>
-<body>
-  <!-- Your original HTML remains completely unchanged -->
-  <div id="loading">
-    <!-- [YOUR EXACT LOADING SCREEN HTML] -->
-  </div>
-  <!-- [ALL YOUR OTHER ORIGINAL HTML ELEMENTS] -->
+--- START OF FILE index.html ---
 
-  <script>
-  // RESTORED ORIGINAL WORKING CODE
-  let scene, camera, renderer, ctx; 
-  let targets = [];
-  let projectiles = [];
-  let explosions = [];
-  let gameRunningGlobal = false; 
-  let animateLights = () => {}; 
-  let textureLoader; 
+<!DOCTYPE html>  <html lang="en">  
+<head>  
+  <meta charset="UTF-8">  
+  <title>FPS Target Shooter with Explosions</title>  
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">  
+  <style>  
+    * { margin: 0; padding: 0; box-sizing: border-box; }  
+    body {  
+      overflow: hidden;  
+      font-family: 'Orbitron', sans-serif;  
+      background: linear-gradient(to bottom, #0a0a2a, #1a1a4a);  
+      color: white;  
+      touch-action: none;   
+      height: 100vh;  
+    }  
+    canvas { position: absolute; top: 0; left: 0; display: block; }  
+    canvas.webgl { z-index: 0; }  
+    canvas#hud { z-index: 1; pointer-events: none; }  #loading, #start-screen, #game-over {  
+  position: fixed; top: 0; left: 0;  
+  width: 100%; height: 100%; display: none;  
+  flex-direction: column; justify-content: center; align-items: center;  
+  z-index: 10;  
+  text-align: center;  
+  background: rgba(0, 0, 20, 0.95);  
+}  
+#loading { display: flex; }   
 
-  const shootSound = new Audio('laser.mp3'); 
-  shootSound.volume = 0.5; 
-  const explosionSound = new Audio('explosion.mp3'); 
-  const reloadSound = new Audio('reload.mp3'); 
-  const backgroundMusic = new Audio('backgroundmusic.mp3'); 
-  backgroundMusic.loop = true; 
-  backgroundMusic.volume = 0.3; 
+#start-screen { display: none; }   
+h1, h2 { text-shadow: 0 0 15px currentColor; }  
+#start-screen h1 {   
+  font-size: 4rem;   
+  color: #00ffcc;   
+  margin-bottom:2rem;  
+  text-transform: uppercase;  
+  letter-spacing: 3px;  
+  background: linear-gradient(to right, #00ffcc, #0066ff);  
+  -webkit-background-clip: text;  
+  -webkit-text-fill-color: transparent;  
+}  
 
-  // SAFE ENHANCEMENTS (won't break existing functionality)
-  let score = 0;
-  let combo = 0;
-  let comboTimer = 0;
-  const scoreEl = document.createElement('div');
-  scoreEl.id = 'score-display';
-  scoreEl.style.position = 'fixed';
-  scoreEl.style.top = '20px';
-  scoreEl.style.left = '20px';
-  scoreEl.style.fontSize = '1.5rem';
-  scoreEl.style.color = '#00ffcc';
-  scoreEl.style.textShadow = '0 0 10px #00ffcc';
-  scoreEl.style.zIndex = '10';
-  document.body.appendChild(scoreEl);
+#start-button, #restart-button {  
+  background: #0066ff; color: #fff; border:none;  
+  padding:15px 40px; font-size:1.5rem; border-radius:30px;  
+  cursor:pointer; letter-spacing:2px; text-transform:uppercase;  
+  box-shadow:0 0 15px #0066ff; transition:all .3s;  
+  font-family: 'Orbitron', sans-serif;  
+  margin: 20px 0;  
+  position: relative;  
+  overflow: hidden;  
+}  
+#start-button:hover, #restart-button:hover {  
+  transform: scale(1.1); box-shadow:0 0 25px #00ffcc;  
+  background: #00aaff;  
+}  
+#start-button:before, #restart-button:before {  
+  content: '';  
+  position: absolute;  
+  top: -10px; left: -10px;  
+  right: -10px; bottom: -10px;  
+  background: linear-gradient(45deg, #00ffcc, #0066ff, #00ffcc);  
+  z-index: -1;  
+  filter: blur(10px);  
+  opacity: 0.7;  
+  animation: border-pulse 3s infinite linear;  
+}  
+@keyframes border-pulse {  
+  0% { transform: scale(1); opacity: 0.7; }  
+  50% { transform: scale(1.05); opacity: 0.9; }  
+  100% { transform: scale(1); opacity: 0.7; }  
+}  
 
-  function updateScore(points) {
-    score += points;
-    scoreEl.textContent = `SCORE: ${score}`;
-    
-    // Simple combo system
-    combo++;
-    comboTimer = 100;
-    if (combo > 5) {
-      const comboEl = document.getElementById('combo-display');
-      comboEl.textContent = `COMBO x${combo}`;
-      comboEl.style.opacity = 1;
-      setTimeout(() => comboEl.style.opacity = 0, 1000);
-    }
-  }
+#game-over { display:none; }  
+#game-over h2 {   
+  font-size:5rem;   
+  color:#ff0066;   
+  margin-bottom:2rem;  
+  text-transform: uppercase;  
+  letter-spacing: 2px;  
+}  
+#final-score {   
+  font-size:2.5rem;   
+  color:#00ffcc;   
+  margin-bottom:3rem;  
+  text-shadow: 0 0 10px #00ffcc;  
+}  
 
-  // RESTORED ORIGINAL FUNCTIONS WITH MINIMAL SAFE IMPROVEMENTS
-  function createExplosion(x, y, z) {
-    if (!scene) return null;
-    
-    // ORIGINAL EXPLOSION CODE
-    explosionSound.currentTime = 0;
-    explosionSound.play().catch(e => console.warn("Explosion sound:", e));
+#instructions {   
+  position:absolute;   
+  bottom:20px;   
+  color:#aaa;   
+  font-size:1rem;   
+  text-align:center;   
+  width:100%;   
+  max-width:500px;   
+  padding:0 20px;  
+  line-height: 1.6;  
+  display: none;   
+  z-index: 5;   
+}  
+#instructions p {   
+  margin-top: 0.5em;   
+  background: rgba(0, 102, 255, 0.2);  
+  padding: 8px 15px;  
+  border-radius: 15px;  
+  border: 1px solid #00aaff;  
+}  
 
-    const explosionData = {
-      particles: [], 
-      position: new THREE.Vector3(x, y, z), 
-      timer: 30, 
-      active: true
-    };
-    
-    // [YOUR ORIGINAL EXPLOSION PARTICLE CODE]
-    
-    explosions.push(explosionData);
-    return explosionData;
-  }
+#mobile-controls {  
+  position: fixed; bottom: 20px; width: 100%; display: none;   
+  justify-content: space-between; padding: 0 20px; z-index: 2;  
+}  
+.mobile-btn {  
+  width: 80px; height: 80px; border-radius: 50%;  
+  background: rgba(0, 102, 255, 0.3); border: 2px solid #00ccff;  
+  color: white; display: flex; justify-content: center; align-items: center;  
+  font-size: 1.2rem; user-select: none; -webkit-user-select: none;  
+  touch-action: manipulation; box-shadow: 0 0 15px rgba(0, 204, 255, 0.5);  
+  transition: all 0.2s;  
+}  
+.mobile-btn:active { transform: scale(0.9); background: rgba(0, 204, 255, 0.5); }  
 
-  function createTarget(isEnemy, powerupType = 'reload_pack') {
-    // YOUR ORIGINAL TARGET CREATION CODE
-    // Only added score tracking on hit
-    target.userData.onHit = function() {
-      updateScore(isEnemy ? 100 : 50);
-      createExplosion(this.position.x, this.position.y, this.position.z);
-    };
-    return target;
-  }
+#level-up {  
+  position: fixed; top: 50%; left: 50%;  
+  transform: translate(-50%, -50%) scale(1);   
+  font-size: 3rem; color: #ff00ff; text-shadow: 0 0 20px #ff00ff;  
+  z-index: 20; opacity: 0; transition: opacity 0.5s, transform 0.5s;  
+  pointer-events: none; font-weight: bold; text-transform: uppercase;  
+}  
 
-  // RESTORED ORIGINAL INITIALIZATION
-  document.addEventListener('DOMContentLoaded', () => {
-    // YOUR ORIGINAL LOADING SEQUENCE
-    // Only added safe score reset on restart
-    document.getElementById('restart-button').addEventListener('click', () => {
-      score = 0;
-      combo = 0;
-      updateScore(0);
-    });
-  });
+#combo-display {  
+  position: fixed; top: 30%; left: 50%;  
+  transform: translate(-50%, -50%);  
+  font-size: 2.5rem; color: #ff00ff; text-shadow: 0 0 15px #ff00ff;  
+  z-index: 20; opacity: 0; transition: opacity 0.3s, transform 0.3s;  
+  pointer-events: none; font-weight: bold;  
+}  
 
-  // ENHANCED BUT SAFE ANIMATION LOOP
-  function animate() {
-    if (!gameRunningGlobal) return;
-    
-    // YOUR ORIGINAL ANIMATION CODE
-    // Added combo timer decay
-    if (comboTimer > 0) {
-      comboTimer--;
-      if (comboTimer === 0) {
-        combo = 0;
-      }
-    }
-    
-    requestAnimationFrame(animate);
-  }
+#loading h1 {   
+  color: #00ffcc;   
+  text-shadow: 0 0 10px #00ffcc;   
+  margin-bottom: 2rem;  
+  font-size: 2.5rem;  
+  animation: pulse 1.5s infinite alternate;  
+}  
+@keyframes pulse {   
+  from { transform: scale(1); }  
+  to { transform: scale(1.05); text-shadow: 0 0 20px #00ffcc; }  
+}  
+.loading-content {  
+  display: flex; flex-direction: column; align-items: center;  
+  justify-content: center; height: 100%; padding: 20px; text-align: center;  
+}  
+.progress-container { width: 80%; max-width: 400px; margin: 30px 0; }  
+.progress-bar {   
+  height: 20px; background: rgba(0, 40, 80, 0.5);  
+  border-radius: 10px; overflow: hidden; position: relative;  
+  box-shadow: 0 0 10px rgba(0, 150, 255, 0.3);  
+}  
+.progress {   
+  height: 100%; background: linear-gradient(90deg, #0066ff, #00ffcc);  
+  width: 0%; transition: width 0.3s ease-out; position: relative; z-index: 1;  
+}  
+.progress-glow {  
+  position: absolute; top: 0; left: 0; height: 100%; width: 100%;  
+  background: linear-gradient(90deg,   
+    rgba(0, 200, 255, 0.4) 0%,   
+    rgba(0, 255, 200, 0.7) 50%,   
+    rgba(0, 200, 255, 0.4) 100%);  
+  background-size: 200% 100%; animation: progress-glow 2s linear infinite;  
+  opacity: 0.7;  
+}  
+@keyframes progress-glow {  
+  0% { background-position: 200% 0; }  
+  100% { background-position: -200% 0; }  
+}  
+.loading-text {  
+  margin-top: 10px; color: #00aaff; font-size: 14px;  
+  text-shadow: 0 0 5px rgba(0, 170, 255, 0.5);  
+}  
+.hint {  
+  position: absolute; bottom: 30px; color: rgba(255, 255, 255, 0.6);  
+  font-size: 12px; animation: pulse 2s infinite;   
+}  
 
-  // YOUR ORIGINAL REMAINING CODE BELOW
-  // [ALL OTHER FUNCTIONS REMAIN UNCHANGED]
-  </script>
-</body>
-</html>
+#orientation-warning {  
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;  
+  background: rgba(0,0,0,0.95); z-index: 1000;   
+  display: none; justify-content: center; align-items: center;  
+  font-size: 1.8rem; color: #ff5555; text-align: center; padding: 20px;  
+}  
+
+@media (max-width: 768px) {  
+  #mobile-controls { display: flex; }  
+  #game-over h2 { font-size: 3rem; }  
+  #final-score { font-size: 2rem; }  
+  #level-up { font-size: 2rem; }  
+  #combo-display { font-size: 1.8rem; }  
+  #orientation-warning { font-size: 1.5rem; }   
+
+  #start-screen {  
+    padding: 20px 15px;   
+    justify-content: center;   
+    align-items: center;   
+    display: flex;   
+    flex-direction: column;   
+  }  
+
+  #start-screen h1 {   
+    font-size: 2.2rem;   
+    margin-bottom: 2rem;   
+    line-height: 1.25;   
+    text-align: center;   
+  }  
+
+  #start-button, #restart-button {   
+    padding: 12px 30px;   
+    font-size: 1.1rem;    
+    margin: 1rem 0;       
+  }  
+
+  #start-screen #start-button {  
+    margin-top: 0;   
+    margin-bottom: 1rem;   
+  }  
+
+  #instructions {   
+     bottom: 120px;   
+  }  
+}
+
+  </style>  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>  
+</head>  
+<body>  
+  <div id="loading">  
+    <div class="loading-content">  
+      <h1>EXPLOSIVE TARGET SHOOTER</h1>  
+      <div class="progress-container">  
+        <div class="progress-bar">  
+          <div class="progress" id="progress"></div>  
+          <div class="progress-glow"></div>  
+        </div>  
+        <div class="loading-text" id="loading-text">LOADING ASSETS...</div>  
+      </div>  
+      <div class="hint">TAP START MISSION TO ENTER FULLSCREEN</div>  
+    </div>  
+  </div>    <div id="start-screen">  
+    <h1>EXPLOSIVE TARGET SHOOTER</h1>  
+    <button id="start-button">START MISSION</button>  
+  </div>    <div id="instructions">  
+    <p>DRAG or A/D KEYS to Strafe</p>  
+    <p>TAP SCREEN to Shoot</p>  
+    <p>SHOOT RED ENEMIES • COLLECT POWER-UPS (Reload/Health)</p>  
+    <p>WATCH TARGETS EXPLODE ON HIT!</p>  
+  </div>    <div id="game-over">  
+    <h2>MISSION FAILED</h2>  
+    <div id="final-score">SCORE: 0</div>  
+    <button id="restart-button">TRY AGAIN</button>  
+  </div>    <div id="level-up">LEVEL UP!</div>  
+  <div id="combo-display">COMBO x0</div>    <div id="mobile-controls">  
+    <div class="mobile-btn" id="left-btn">←</div>  
+    <div class="mobile-btn" id="shoot-btn">FIRE</div>  
+    <div class="mobile-btn" id="right-btn">→</div>  
+  </div>    <div id="orientation-warning">  
+    <div>Please rotate your device to landscape mode to play.</div>  
+  </div>  <canvas id="hud"></canvas>
+
+  <script>  
+  let scene, camera, renderer, ctx;   
+  let targets = [];  
+  let projectiles = [];  
+  let explosions = [];  
+  let gameRunningGlobal = false;   
+  let animateLights = () => {};   
+  let textureLoader;   
+  
+  const shootSound = new Audio('laser.mp3');   
+  shootSound.volume = 0.5;   
+  const explosionSound = new Audio('explosion.mp3');   
+  const reloadSound = new Audio('reload.mp3');   
+  const backgroundMusic = new Audio('backgroundmusic.mp3');   
+  backgroundMusic.loop = true;   
+  backgroundMusic.volume = 0.3;   
+  
+  function createExplosion(x, y, z) {  
+    if (!scene) { console.error("Scene not ready for explosion"); return null; }  
+    explosionSound.currentTime = 0;  
+    explosionSound.play().catch(e => console.warn("Error playing explosion sound:", e));  
+  
+    const explosionData = {  
+      particles: [], position: new THREE.Vector3(x, y, z), timer: 30, active: true  
+    };  
+    const colors = [0xff0000, 0xff6600, 0xffff00, 0xffffff];  
+    for (let i = 0; i < 20; i++) {  
+      const particleGeom = new THREE.SphereGeometry(0.15, 6, 6);  
+      const particleMat = new THREE.MeshBasicMaterial({  
+        color: colors[Math.floor(Math.random() * colors.length)], transparent: true, opacity: 1.0  
+      });  
+      const particle = new THREE.Mesh(particleGeom, particleMat);  
+      particle.position.set(x, y, z);  
+      particle.userData = {  
+        velocity: new THREE.Vector3((Math.random() - 0.5), (Math.random() - 0.5), (Math.random() - 0.5))  
+                  .normalize().multiplyScalar(Math.random() * 0.15 + 0.05),  
+      };  
+      explosionData.particles.push(particle);  
+      scene.add(particle);   
+    }  
+    explosions.push(explosionData);   
+    return explosionData;  
+  }  
+  
+  function handleOrientation() {  
+    const orientationWarningEl = document.getElementById('orientation-warning');  
+    if (!orientationWarningEl) return;   
+    const isPortrait = window.innerHeight > window.innerWidth;  
+  
+    if (isPortrait) {  
+      orientationWarningEl.style.display = 'flex';  
+      if (gameRunningGlobal && backgroundMusic && !backgroundMusic.paused) {   
+          backgroundMusic.pause();  
+      }  
+      gameRunningGlobal = false;   
+    } else {   
+      orientationWarningEl.style.display = 'none';  
+      const startScreenEl = document.getElementById('start-screen');   
+      if (!gameRunningGlobal && window.renderer && startScreenEl && !startScreenEl.style.display.includes('flex')) {  
+         gameRunningGlobal = true;  
+         if (backgroundMusic && backgroundMusic.paused) {   
+            backgroundMusic.play().catch(e => console.warn("Error resuming background music:", e));  
+         }  
+      }  
+    }  
+  }  
+  
+  document.addEventListener('DOMContentLoaded', () => {  
+    const loadingEl   = document.getElementById('loading');   
+    const progressEl  = document.getElementById('progress');   
+    const loadingTextEl = document.getElementById('loading-text');   
+    const startScr  = document.getElementById('start-screen');  
+    const gameOver  = document.getElementById('game-over');  
+    const startBtn  = document.getElementById('start-button');  
+    const restartBtn= document.getElementById('restart-button');  
+  
+    const startFullscreen = () => {  
+      const elem = document.documentElement;  
+      if (elem.requestFullscreen) {  
+        elem.requestFullscreen().catch(e => console.warn("Fullscreen request failed:", e));  
+      } else if (elem.webkitRequestFullscreen) {   
+        elem.webkitRequestFullscreen();  
+      } else if (elem.msRequestFullscreen) {   
+        elem.msRequestFullscreen();  
+      }  
+    };  
+  
+    if (!loadingEl || !progressEl || !loadingTextEl) {  
+        console.error("Critical loading screen elements (loading, progress, or loading-text) are missing from the DOM! Bypassing loading animation.");  
+        if(loadingEl) loadingEl.style.display = 'none';  
+        if(startScr) startScr.style.display = 'flex';  
+        return;   
+    }  
+  
+    let p=0, iv = setInterval(()=>{  
+      p += Math.random()*12;  
+      loadingTextEl.textContent = `LOADING ASSETS... ${Math.min(100, Math.round(p))}%`;  
+      if(p>=100){ p=100; clearInterval(iv);  
+        setTimeout(()=>{  
+          loadingEl.style.opacity='0';   
+          setTimeout(()=>{  
+            loadingEl.style.display='none';  
+            if (startScr) startScr.style.display='flex';   
+          },600);   
+        },300);  
+      }  
+      progressEl.style.width = Math.min(100,p)+'%';  
+    },150);   
+  
+    if (startBtn) {  
+        startBtn.onclick = () => {  
+          if (startScr) startScr.style.display = 'none';  
+          startFullscreen();  
+          setTimeout(initGame, 100);   
+        };  
+    }  
+    if (restartBtn) {  
+        restartBtn.onclick = ()=>{   
+            if (gameOver) gameOver.style.display='none';   
+            initGame();   
+        }  
+    }  
+  
+    window.showGameOver = () => {  
+        const finalScoreEl = document.getElementById('final-score');  
+        if (finalScoreEl) finalScoreEl.textContent = `SCORE: ${window.finalScore || 0}`;  
+        if (gameOver) gameOver.style.display='flex';  
+    };  
+  
+    handleOrientation();   
+    window.addEventListener('resize', handleOrientation);  
+    window.addEventListener('orientationchange', handleOrientation);  
+  });  
+  
+  function createTarget(isEnemy, powerupType = 'reload_pack') {   
+      if (!scene || !textureLoader) {   
+          console.error("[createTarget] ERROR: scene or textureLoader not initialized!");  
+          return null;  
+      }  
+  
+      if (!isEnemy) { // POWER-UP  
+          let textureFile, planeColor, subType;  
+          let planeWidth = 1.5;   
+          let planeHeight = 1.5;  
+  
+          if (powerupType === 'reload_pack') {  
+              textureFile = 'powerup.png';   
+              planeColor = 0x44ccff;   
+              subType = 'reload_pack';  
+              planeWidth = 1.8;   
+              planeHeight = 1.8;  
+              console.log("[DEBUG] createTarget: Attempting to create RELOAD PACK sprite.");  
+          } else if (powerupType === 'health_pack') {   
+              textureFile = 'health_pack.png';      
+              planeColor = 0x44ff44;   
+              subType = 'health_pack';  
+              // planeWidth = 1.5; // Default size is fine for health pack too  
+              // planeHeight = 1.5;  
+              console.log("[DEBUG] createTarget: Attempting to create HEALTH PACK sprite.");  
+          } else {  
+              console.warn("[createTarget] Unknown powerupType:", powerupType, "Cannot create powerup.");  
+              return null;  
+          }  
+  
+          const powerupMaterial = new THREE.MeshBasicMaterial({  
+              transparent: true,  
+              alphaTest: 0.1,  
+              side: THREE.DoubleSide,  
+              color: planeColor   
+          });  
+  
+          textureLoader.load(  
+              textureFile,  
+              (loadedTexture) => {  
+                  console.log(`[SUCCESS] ${textureFile} texture LOADED for ${subType}!`);  
+                  powerupMaterial.map = loadedTexture;  
+                  powerupMaterial.color.set(0xffffff);   
+                  powerupMaterial.needsUpdate = true;  
+              },  
+              undefined,  
+              (err) => {  
+                  console.error(`[CRITICAL FAILURE] ${textureFile} texture FAILED to load for ${subType}.`, err);  
+              }  
+          );  
+  
+          const powerupGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);  
+          const powerupPlane = new THREE.Mesh(powerupGeometry, powerupMaterial);  
+  
+          const laneXPowerUp = (Math.floor(Math.random() * 3) - 1) * 6;  
+          const zPosPowerUp = -(Math.random() * 30 + 50);  
+          powerupPlane.position.set(laneXPowerUp, 1.2, zPosPowerUp);  
+  
+          powerupPlane.userData = {  
+              type: 'powerup',  
+              subType: subType,  
+              hit: false,  
+              timer: 0,  
+              isBillboard: true  
+          };  
+  
+          scene.add(powerupPlane); targets.push(powerupPlane);  
+          console.log(`[DEBUG] ${subType.toUpperCase()} PLANE added. Pos:`, powerupPlane.position.toArray().join(','), "World Size:", planeWidth, "x", planeHeight);  
+          return powerupPlane;  
+  
+      } else { // ENEMY PLANE  
+          console.log("[DEBUG] createTarget: Attempting to create ENEMY PLANE with texture 'enemy1.png'.");  
+  
+          const planeWidth = 3.0;    
+          const planeHeight = 3.0;   
+  
+          const enemyGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);  
+          const enemyMaterial = new THREE.MeshBasicMaterial({  
+              transparent: true,      
+              alphaTest: 0.1,         
+              side: THREE.DoubleSide,  
+              depthWrite: false,   
+              color: 0xff00ff   
+          });  
+  
+          textureLoader.load(  
+              'enemy1.png',   
+              function onLoad(loadedTexture) {   
+                  console.log("[SUCCESS] enemy1.png texture LOADED for enemy plane! Applying to material.", loadedTexture);  
+                  enemyMaterial.map = loadedTexture;  
+                  enemyMaterial.color.set(0xffffff);   
+                  enemyMaterial.needsUpdate = true;    
+              },  
+              undefined,   
+              function onError(err) {   
+                  console.error("[CRITICAL FAILURE] enemy1.png texture FAILED to load for enemy. Using fallback color.", err);  
+              }  
+          );  
+  
+          const enemyPlane = new THREE.Mesh(enemyGeometry, enemyMaterial);  
+  
+          if (targets.filter(t => t.userData.type === 'enemy').length === 0) {   
+            enemyPlane.position.set(0, 1.5, -20);   
+            console.log("[DEBUG] First enemy plane spawned at TEST position (0, 1.5, -20).");  
+          } else {  
+            const regularLaneX = (Math.floor(Math.random() * 3) - 1) * 6;  
+            const regularZPos = -(Math.random() * 40 + 60);  
+            enemyPlane.position.set(regularLaneX, 1.5, regularZPos);  
+          }  
+  
+          enemyPlane.userData = {  
+              type: 'enemy',  
+              hit: false,  
+              timer: 0,  
+              isBillboard: true   
+          };  
+  
+          scene.add(enemyPlane);  
+          targets.push(enemyPlane);  
+          console.log("[DEBUG] Enemy PLANE added to scene. World Size:", planeWidth, "x", planeHeight);  
+          return enemyPlane;  
+      }  
+  }  
+  
+  
+  function initGame(){  
+    console.log("[DEBUG] initGame started.");  
+    scene = new THREE.Scene();   
+    textureLoader = new THREE.TextureLoader();  
+  
+    if (backgroundMusic && backgroundMusic.paused) {  
+        backgroundMusic.play().catch(e => console.warn("Error playing background music:", e));  
+    }  
+  
+    function createTunnel() {  
+      const tunnelGeometry = new THREE.CylinderGeometry(50, 50, 300, 64, 1, true);  
+      const tunnelMaterial = new THREE.MeshPhongMaterial({   
+        color: 0x222255,   
+        transparent: true,   
+        opacity: 0.6,       
+        side: THREE.BackSide,  
+        specular: 0x111111,   
+        shininess: 20  
+      });  
+      const tunnelMesh = new THREE.Mesh(tunnelGeometry, tunnelMaterial);  
+      tunnel
