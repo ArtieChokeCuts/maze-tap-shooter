@@ -663,6 +663,7 @@
 
     const grid = new THREE.GridHelper(300,60,0x00ff88,0x224444);
     scene.add(grid);
+    let gridOffset = 0;
     
     animateLights = createTunnel(); 
     
@@ -922,6 +923,9 @@
         difficulty = 1 + (now - (gameStartTime || now) ) / 60000; 
         const targetCameraX = lane * 6;
         camera.position.x += (targetCameraX - camera.position.x) * 0.12;
+
+        gridOffset += 0.5 * difficulty;
+        grid.position.z = gridOffset % 60;
 
         trySpawnTarget(now);
 
