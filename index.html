@@ -1044,9 +1044,9 @@
 
         targets = targets.filter(t => {
           if (!t.userData.hit) {
-            t.position.z += 0.085 * difficulty;
+            t.position.z += 0.1 * difficulty;
           }
-          if (t.userData && t.userData.isBillboard && camera) {
+          if (t.userData && t.userData.isBillboard && camera) { 
              t.quaternion.copy(camera.quaternion);
           }
 
@@ -1122,7 +1122,12 @@
                   showLevelUp();
               }
               t.userData.hit = true;
-              t.userData.toRemove = true;
+              t.userData.timer = 25;
+              if (t.material && t.userData.hitTexture) {
+                  t.material.map = t.userData.hitTexture;
+                  t.material.color.set(0xffffff);
+                  t.material.needsUpdate = true;
+              }
               hitSomething = true; break;
             }
           }
