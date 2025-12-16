@@ -574,9 +574,9 @@
 
     function createTunnel() {
       const tunnelGeometry = new THREE.CylinderGeometry(50, 50, 300, 64, 1, true);
-      const tunnelMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x222255, 
-        transparent: true, 
+      const tunnelMaterial = new THREE.MeshPhongMaterial({
+        color: 0x222255,
+        transparent: true,
         opacity: 0.6,     
         side: THREE.BackSide,
         specular: 0x111111, 
@@ -597,6 +597,59 @@
         light1.position.z = -50 + Math.sin(time * 0.001) * 20;
         light2.position.z = -80 + Math.cos(time * 0.0015) * 20;
       };
+    }
+
+    function createStarfield() {
+      const starGroup = new THREE.Group();
+      const layers = [
+        { count: 450, size: 0.7, color: 0xffffff, radius: 90, height: [18, 50], speed: 0.0008 },
+        { count: 220, size: 1.0, color: 0x99ccff, radius: 110, height: [24, 60], speed: 0.0005 }
+      ];
+      const updaters = [];
+
+      layers.forEach((layer) => {
+        const positions = new Float32Array(layer.count * 3);
+        for (let i = 0; i < layer.count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * layer.radius * 0.6 + layer.radius * 0.4;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = Math.random() * (layer.height[1] - layer.height[0]) + layer.height[0];
+          positions[i * 3] = x;
+          positions[i * 3 + 1] = y;
+          positions[i * 3 + 2] = z;
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const material = new THREE.PointsMaterial({
+          color: layer.color,
+          size: layer.size,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        });
+
+        const starLayer = new THREE.Points(geometry, material);
+        starLayer.position.y = 0;
+        starGroup.add(starLayer);
+
+        const twinklePhase = Math.random() * Math.PI * 2;
+        updaters.push((time) => {
+          if (camera) {
+            starGroup.position.x = camera.position.x;
+            starGroup.position.z = camera.position.z;
+          }
+          starLayer.rotation.y = time * layer.speed;
+          const pulse = 0.7 + Math.sin(time * 0.0015 + twinklePhase) * 0.15;
+          material.opacity = pulse;
+        });
+      });
+
+      scene.add(starGroup);
+      return (time) => updaters.forEach(fn => fn(time));
     }
 
     if(window.renderer){ 
@@ -623,8 +676,8 @@
     targets = []; projectiles = []; explosions = [];
     gameRunningGlobal = true; 
 
-    scene.background = new THREE.Color(0x111133);
-    // scene.fog = new THREE.FogExp2(0x111133, 0.02); 
+    scene.background = new THREE.Color(0x060610);
+    // scene.fog = new THREE.FogExp2(0x111133, 0.02);
     console.log("[DEBUG] Scene fog is currently disabled for testing.");
 
     camera   = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
@@ -665,7 +718,12 @@
     scene.add(grid);
     let gridOffset = 0;
     
-    animateLights = createTunnel(); 
+    const animateTunnel = createTunnel();
+    const animateStars = createStarfield();
+    animateLights = (time) => {
+      if (animateTunnel) animateTunnel(time);
+      if (animateStars) animateStars(time);
+    };
     
     function createProjectile() { 
         if(!scene || !camera) return null;
