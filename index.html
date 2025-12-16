@@ -495,27 +495,27 @@
 
           const enemyGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
           const enemyMaterial = new THREE.MeshBasicMaterial({
-              transparent: true,    
-              alphaTest: 0.1,       
+              transparent: true,
+              alphaTest: 0.1,
               side: THREE.DoubleSide,
-              depthWrite: false, 
-              color: 0xff00ff 
+              depthWrite: false,
+              color: 0xff00ff
           });
 
           textureLoader.load(
-              'enemy1.png', 
-              function onLoad(loadedTexture) { 
+              'enemy1.png',
+              function onLoad(loadedTexture) {
                   console.log("[SUCCESS] enemy1.png texture LOADED for enemy plane! Applying to material.", loadedTexture);
                   enemyMaterial.map = loadedTexture;
-                  enemyMaterial.color.set(0xffffff); 
-                  enemyMaterial.needsUpdate = true;  
+                  enemyMaterial.color.set(0xffffff);
+                  enemyMaterial.needsUpdate = true;
               },
-              undefined, 
-              function onError(err) { 
+              undefined,
+              function onError(err) {
                   console.error("[CRITICAL FAILURE] enemy1.png texture FAILED to load for enemy. Using fallback color.", err);
               }
           );
-          
+
           const enemyPlane = new THREE.Mesh(enemyGeometry, enemyMaterial);
           
           if (targets.filter(t => t.userData.type === 'enemy').length === 0) { 
@@ -531,8 +531,21 @@
               type: 'enemy',
               hit: false,
               timer: 0,
-              isBillboard: true 
+              isBillboard: true,
+              hitTexture: null
           };
+
+          textureLoader.load(
+              'enemy1blasted.png',
+              (loadedTexture) => {
+                  console.log("[SUCCESS] enemy1blasted.png texture LOADED for enemy hit animation!", loadedTexture);
+                  enemyPlane.userData.hitTexture = loadedTexture;
+              },
+              undefined,
+              (err) => {
+                  console.error("[CRITICAL FAILURE] enemy1blasted.png texture FAILED to load for enemy hit animation.", err);
+              }
+          );
 
           scene.add(enemyPlane);
           targets.push(enemyPlane);
@@ -1013,8 +1026,10 @@
           } return true;
         });
 
-        targets = targets.filter(t => { 
-          t.position.z += 0.1 * difficulty; 
+        targets = targets.filter(t => {
+          if (!t.userData.hit) {
+            t.position.z += 0.1 * difficulty;
+          }
           if (t.userData && t.userData.isBillboard && camera) { 
              t.quaternion.copy(camera.quaternion);
           }
@@ -1081,8 +1096,13 @@
                   health = Math.min(100, health + 30);
                   showLevelUp();
               }
-              cleanupTarget(t);
-              targets.splice(i, 1);
+              t.userData.hit = true;
+              t.userData.timer = 25;
+              if (t.material && t.userData.hitTexture) {
+                  t.material.map = t.userData.hitTexture;
+                  t.material.color.set(0xffffff);
+                  t.material.needsUpdate = true;
+              }
               hitSomething = true; break;
             }
           }
