@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <title>FPS Target Shooter with Explosions</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <link rel="icon" type="image/svg+xml" sizes="any"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%2300aaff'/%3E%3Cpath d='M8 3v10M3 8h10' stroke='%23fff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1044,9 +1049,9 @@
 
         targets = targets.filter(t => {
           if (!t.userData.hit) {
-            t.position.z += 0.1 * difficulty;
+            t.position.z += 0.085 * difficulty;
           }
-          if (t.userData && t.userData.isBillboard && camera) { 
+          if (t.userData && t.userData.isBillboard && camera) {
              t.quaternion.copy(camera.quaternion);
           }
 
