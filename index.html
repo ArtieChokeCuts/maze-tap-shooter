@@ -1127,7 +1127,12 @@
                   showLevelUp();
               }
               t.userData.hit = true;
-              t.userData.toRemove = true;
+              t.userData.timer = 25;
+              if (t.material && t.userData.hitTexture) {
+                  t.material.map = t.userData.hitTexture;
+                  t.material.color.set(0xffffff);
+                  t.material.needsUpdate = true;
+              }
               hitSomething = true; break;
             }
           }
