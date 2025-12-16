@@ -541,6 +541,16 @@
       }
   }
 
+  function cleanupTarget(target) {
+    if (!target) return;
+    if (scene) scene.remove(target);
+    if (target.material) {
+      if (target.material.map) target.material.map.dispose();
+      target.material.dispose();
+    }
+    if (target.geometry) target.geometry.dispose();
+  }
+
   function createCockpit() {
     const group = new THREE.Group();
     const material = new THREE.LineBasicMaterial({
@@ -1026,31 +1036,21 @@
               }
           }
           
-          if (t.position.z > camera.position.z + 1) { 
+          if (t.position.z > camera.position.z + 1) {
             if(!t.userData.hit){
-              if(t.userData.type === 'enemy') { 
-                  health -= 15; 
-                  combo = 0; 
+              if(t.userData.type === 'enemy') {
+                  health -= 15;
+                  combo = 0;
               }
             }
-            if(scene) scene.remove(t); 
-            if(t.material) { 
-                if(t.material.map) t.material.map.dispose(); 
-                t.material.dispose(); 
-            }
-            if (t.geometry) t.geometry.dispose(); 
+            cleanupTarget(t);
             return false;
           }
           if(t.userData.hit){ 
             if (t.material && t.material.opacity !== undefined) t.material.opacity = Math.max(0, (t.userData.timer / 20));
             t.userData.timer--;
             if(t.userData.timer <= 0) {
-              if(scene) scene.remove(t); 
-              if(t.material) { 
-                  if(t.material.map) t.material.map.dispose(); 
-                  t.material.dispose(); 
-              }
-               if (t.geometry) t.geometry.dispose(); 
+              cleanupTarget(t);
               return false;
             }
           } return true;
@@ -1066,22 +1066,23 @@
 
             const tBox = new THREE.Box3().setFromObject(t);
             if (pBox.intersectsBox(tBox)) {
-              t.userData.hit = true; t.userData.timer = 20; 
               const nowPerf = performance.now();
-              combo = (nowPerf - lastHitTime < 2000) ? combo + 1 : 1; 
+              combo = (nowPerf - lastHitTime < 2000) ? combo + 1 : 1;
               lastHitTime = nowPerf;
-              createExplosion(t.position.x, t.position.y, t.position.z); 
+              createExplosion(t.position.x, t.position.y, t.position.z);
               score += 10 + Math.floor(combo/3); if(combo > 2) showCombo(combo);
               if(score >= scoreToNextLevel) {
                   console.log(`[LEVEL UP] Score: ${score}, NextLevelScore: ${scoreToNextLevel}, Old Level: ${level}`);
-                  level++; 
-                  scoreToNextLevel += level * 100; 
+                  level++;
+                  scoreToNextLevel += level * 100;
                   console.log(`           New Level: ${level}, New NextLevelScore: ${scoreToNextLevel}`);
-                  maxAmmo += 5; 
-                  ammo = maxAmmo; 
-                  health = Math.min(100, health + 30); 
+                  maxAmmo += 5;
+                  ammo = maxAmmo;
+                  health = Math.min(100, health + 30);
                   showLevelUp();
               }
+              cleanupTarget(t);
+              targets.splice(i, 1);
               hitSomething = true; break;
             }
           }
