@@ -565,7 +565,7 @@
 
   function initGame(){
     console.log("[DEBUG] initGame started.");
-    scene = new THREE.Scene(); 
+    scene = new THREE.Scene();
     textureLoader = new THREE.TextureLoader();
 
     if (backgroundMusic && backgroundMusic.paused) {
@@ -574,9 +574,9 @@
 
     function createTunnel() {
       const tunnelGeometry = new THREE.CylinderGeometry(50, 50, 300, 64, 1, true);
-      const tunnelMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x222255, 
-        transparent: true, 
+      const tunnelMaterial = new THREE.MeshPhongMaterial({
+        color: 0x222255,
+        transparent: true,
         opacity: 0.6,     
         side: THREE.BackSide,
         specular: 0x111111, 
@@ -597,6 +597,59 @@
         light1.position.z = -50 + Math.sin(time * 0.001) * 20;
         light2.position.z = -80 + Math.cos(time * 0.0015) * 20;
       };
+    }
+
+    function createStarfield() {
+      const starGroup = new THREE.Group();
+      const layers = [
+        { count: 450, size: 0.7, color: 0xffffff, radius: 90, height: [18, 50], speed: 0.0008 },
+        { count: 220, size: 1.0, color: 0x99ccff, radius: 110, height: [24, 60], speed: 0.0005 }
+      ];
+      const updaters = [];
+
+      layers.forEach((layer) => {
+        const positions = new Float32Array(layer.count * 3);
+        for (let i = 0; i < layer.count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * layer.radius * 0.6 + layer.radius * 0.4;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = Math.random() * (layer.height[1] - layer.height[0]) + layer.height[0];
+          positions[i * 3] = x;
+          positions[i * 3 + 1] = y;
+          positions[i * 3 + 2] = z;
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const material = new THREE.PointsMaterial({
+          color: layer.color,
+          size: layer.size,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        });
+
+        const starLayer = new THREE.Points(geometry, material);
+        starLayer.position.y = 0;
+        starGroup.add(starLayer);
+
+        const twinklePhase = Math.random() * Math.PI * 2;
+        updaters.push((time) => {
+          if (camera) {
+            starGroup.position.x = camera.position.x;
+            starGroup.position.z = camera.position.z;
+          }
+          starLayer.rotation.y = time * layer.speed;
+          const pulse = 0.7 + Math.sin(time * 0.0015 + twinklePhase) * 0.15;
+          material.opacity = pulse;
+        });
+      });
+
+      scene.add(starGroup);
+      return (time) => updaters.forEach(fn => fn(time));
     }
 
     if(window.renderer){ 
@@ -623,8 +676,8 @@
     targets = []; projectiles = []; explosions = [];
     gameRunningGlobal = true; 
 
-    scene.background = new THREE.Color(0x111133);
-    // scene.fog = new THREE.FogExp2(0x111133, 0.02); 
+    scene.background = new THREE.Color(0x060610);
+    // scene.fog = new THREE.FogExp2(0x111133, 0.02);
     console.log("[DEBUG] Scene fog is currently disabled for testing.");
 
     camera   = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
@@ -664,10 +717,25 @@
     const grid = new THREE.GridHelper(300,60,0x00ff88,0x224444);
     scene.add(grid);
     let gridOffset = 0;
-    
-    animateLights = createTunnel(); 
-    
-    function createProjectile() { 
+
+    const animateTunnel = createTunnel();
+    const animateStars = createStarfield();
+    animateLights = (time) => {
+      if (animateTunnel) animateTunnel(time);
+      if (animateStars) animateStars(time);
+    };
+
+    function disposeTarget(target) {
+      if (!target) return;
+      if (scene && target.parent === scene) scene.remove(target);
+      if (target.material) {
+        if (target.material.map) target.material.map.dispose();
+        target.material.dispose();
+      }
+      if (target.geometry) target.geometry.dispose();
+    }
+
+    function createProjectile() {
         if(!scene || !camera) return null;
         const geometry = new THREE.SphereGeometry(0.2, 8, 8);
         const material = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.9 });
@@ -945,9 +1013,9 @@
           } return true;
         });
 
-        targets = targets.filter(t => { 
-          t.position.z += 0.1 * difficulty; 
-          if (t.userData && t.userData.isBillboard && camera) { 
+        targets = targets.filter(t => {
+          t.position.z += 0.1 * difficulty;
+          if (t.userData && t.userData.isBillboard && camera) {
              t.quaternion.copy(camera.quaternion);
           }
 
@@ -968,62 +1036,53 @@
               }
           }
           
-          if (t.position.z > camera.position.z + 1) { 
+          if (t.position.z > camera.position.z + 1) {
             if(!t.userData.hit){
-              if(t.userData.type === 'enemy') { 
-                  health -= 15; 
-                  combo = 0; 
+              if(t.userData.type === 'enemy') {
+                  health -= 15;
+                  combo = 0;
               }
             }
-            if(scene) scene.remove(t); 
-            if(t.material) { 
-                if(t.material.map) t.material.map.dispose(); 
-                t.material.dispose(); 
-            }
-            if (t.geometry) t.geometry.dispose(); 
+            disposeTarget(t);
             return false;
           }
-          if(t.userData.hit){ 
+          if(t.userData.hit){
             if (t.material && t.material.opacity !== undefined) t.material.opacity = Math.max(0, (t.userData.timer / 20));
             t.userData.timer--;
             if(t.userData.timer <= 0) {
-              if(scene) scene.remove(t); 
-              if(t.material) { 
-                  if(t.material.map) t.material.map.dispose(); 
-                  t.material.dispose(); 
-              }
-               if (t.geometry) t.geometry.dispose(); 
+              disposeTarget(t);
               return false;
             }
           } return true;
         });
-        
-        projectiles = projectiles.filter(p => { 
+
+        projectiles = projectiles.filter(p => {
           p.position.add(p.userData.velocity); p.userData.timer--;
           const pBox = new THREE.Box3().setFromObject(p); let hitSomething = false;
           for (let i = targets.length - 1; i >= 0; i--) {
-            const t = targets[i]; 
-            if (t.userData.hit) continue; 
-            if (t.userData.type !== 'enemy') continue; 
+            const t = targets[i];
+            if (t.userData.hit) continue;
+            if (t.userData.type !== 'enemy') continue;
 
             const tBox = new THREE.Box3().setFromObject(t);
             if (pBox.intersectsBox(tBox)) {
-              t.userData.hit = true; t.userData.timer = 20; 
               const nowPerf = performance.now();
-              combo = (nowPerf - lastHitTime < 2000) ? combo + 1 : 1; 
+              combo = (nowPerf - lastHitTime < 2000) ? combo + 1 : 1;
               lastHitTime = nowPerf;
-              createExplosion(t.position.x, t.position.y, t.position.z); 
+              createExplosion(t.position.x, t.position.y, t.position.z);
               score += 10 + Math.floor(combo/3); if(combo > 2) showCombo(combo);
               if(score >= scoreToNextLevel) {
                   console.log(`[LEVEL UP] Score: ${score}, NextLevelScore: ${scoreToNextLevel}, Old Level: ${level}`);
-                  level++; 
-                  scoreToNextLevel += level * 100; 
+                  level++;
+                  scoreToNextLevel += level * 100;
                   console.log(`           New Level: ${level}, New NextLevelScore: ${scoreToNextLevel}`);
-                  maxAmmo += 5; 
-                  ammo = maxAmmo; 
-                  health = Math.min(100, health + 30); 
+                  maxAmmo += 5;
+                  ammo = maxAmmo;
+                  health = Math.min(100, health + 30);
                   showLevelUp();
               }
+              disposeTarget(t);
+              targets.splice(i, 1);
               hitSomething = true; break;
             }
           }
