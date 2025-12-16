@@ -495,27 +495,27 @@
 
           const enemyGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
           const enemyMaterial = new THREE.MeshBasicMaterial({
-              transparent: true,    
-              alphaTest: 0.1,       
+              transparent: true,
+              alphaTest: 0.1,
               side: THREE.DoubleSide,
-              depthWrite: false, 
-              color: 0xff00ff 
+              depthWrite: false,
+              color: 0xff00ff
           });
 
           textureLoader.load(
-              'enemy1.png', 
-              function onLoad(loadedTexture) { 
+              'enemy1.png',
+              function onLoad(loadedTexture) {
                   console.log("[SUCCESS] enemy1.png texture LOADED for enemy plane! Applying to material.", loadedTexture);
                   enemyMaterial.map = loadedTexture;
-                  enemyMaterial.color.set(0xffffff); 
-                  enemyMaterial.needsUpdate = true;  
+                  enemyMaterial.color.set(0xffffff);
+                  enemyMaterial.needsUpdate = true;
               },
-              undefined, 
-              function onError(err) { 
+              undefined,
+              function onError(err) {
                   console.error("[CRITICAL FAILURE] enemy1.png texture FAILED to load for enemy. Using fallback color.", err);
               }
           );
-          
+
           const enemyPlane = new THREE.Mesh(enemyGeometry, enemyMaterial);
           
           if (targets.filter(t => t.userData.type === 'enemy').length === 0) { 
@@ -531,8 +531,21 @@
               type: 'enemy',
               hit: false,
               timer: 0,
-              isBillboard: true 
+              isBillboard: true,
+              hitTexture: null
           };
+
+          textureLoader.load(
+              'enemy1blasted.png',
+              (loadedTexture) => {
+                  console.log("[SUCCESS] enemy1blasted.png texture LOADED for enemy hit animation!", loadedTexture);
+                  enemyPlane.userData.hitTexture = loadedTexture;
+              },
+              undefined,
+              (err) => {
+                  console.error("[CRITICAL FAILURE] enemy1blasted.png texture FAILED to load for enemy hit animation.", err);
+              }
+          );
 
           scene.add(enemyPlane);
           targets.push(enemyPlane);
@@ -735,9 +748,9 @@
       if (animateStars) animateStars(time);
     };
     
-    function createProjectile() { 
+    function createProjectile() {
         if(!scene || !camera) return null;
-        const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+        const geometry = new THREE.SphereGeometry(0.28, 10, 10);
         const material = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.9 });
         const projectile = new THREE.Mesh(geometry, material);
         const projectileOffset = new THREE.Vector3(0, -0.2, -1);
@@ -748,7 +761,7 @@
     }
 
     function trySpawnTarget(now) {
-        const maxEnemies = 5;
+        const maxEnemies = 4;
         const maxReloadPacks = 1;
         const maxHealthPacks = 1;
 
@@ -760,7 +773,7 @@
             if (now - lastSpawnTime > spawnInterval) {
                 createTarget(true);
                 lastSpawnTime = now;
-                spawnInterval = Math.max(800, spawnInterval * 0.985);
+                spawnInterval = Math.max(900, spawnInterval * 0.992);
             }
         }
 
@@ -883,7 +896,7 @@
       const projectile = createProjectile();
       if (!projectile) return; 
       const direction = new THREE.Vector3(0,0,-1); direction.applyQuaternion(camera.quaternion);
-      projectile.userData = { velocity: direction.multiplyScalar(1.8), timer: 100 };
+      projectile.userData = { velocity: direction.multiplyScalar(2.2), timer: 100 };
     }
 
     function handleReload(isFromPowerup = false) { 
@@ -1013,8 +1026,10 @@
           } return true;
         });
 
-        targets = targets.filter(t => { 
-          t.position.z += 0.1 * difficulty; 
+        targets = targets.filter(t => {
+          if (!t.userData.hit) {
+            t.position.z += 0.085 * difficulty;
+          }
           if (t.userData && t.userData.isBillboard && camera) { 
              t.quaternion.copy(camera.quaternion);
           }
@@ -1058,13 +1073,13 @@
         
         projectiles = projectiles.filter(p => { 
           p.position.add(p.userData.velocity); p.userData.timer--;
-          const pBox = new THREE.Box3().setFromObject(p); let hitSomething = false;
+          const pBox = new THREE.Box3().setFromObject(p).expandByScalar(0.15); let hitSomething = false;
           for (let i = targets.length - 1; i >= 0; i--) {
             const t = targets[i]; 
             if (t.userData.hit) continue; 
             if (t.userData.type !== 'enemy') continue; 
 
-            const tBox = new THREE.Box3().setFromObject(t);
+            const tBox = new THREE.Box3().setFromObject(t).expandByScalar(0.35);
             if (pBox.intersectsBox(tBox)) {
               const nowPerf = performance.now();
               combo = (nowPerf - lastHitTime < 2000) ? combo + 1 : 1;
@@ -1081,8 +1096,13 @@
                   health = Math.min(100, health + 30);
                   showLevelUp();
               }
-              cleanupTarget(t);
-              targets.splice(i, 1);
+              t.userData.hit = true;
+              t.userData.timer = 25;
+              if (t.material && t.userData.hitTexture) {
+                  t.material.map = t.userData.hitTexture;
+                  t.material.color.set(0xffffff);
+                  t.material.needsUpdate = true;
+              }
               hitSomething = true; break;
             }
           }
