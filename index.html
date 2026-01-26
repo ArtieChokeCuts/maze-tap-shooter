@@ -468,11 +468,12 @@
       evaSprite.position.set(0, 1.1, 0);
       busGroup.add(evaSprite);
 
-      const wand = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8),
-        new THREE.MeshStandardMaterial({ color: 0xfdf6ff })
+      // Create the magic point (invisible source for sparkles)
+      wandTip = new THREE.Mesh(
+        new THREE.SphereGeometry(0.05, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
       );
-      wandTip.position.set(0.65, 1.35, 0.35);
+      wandTip.position.set(0.4, 1.1, 0);
       busGroup.add(wandTip);
 
       busGroup.position.set(0, -0.2, 3.5);
