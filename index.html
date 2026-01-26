@@ -170,21 +170,46 @@
     evaSprite.position.set(0, 1.1, 0);
     busGroup.add(evaSprite);
 
-    const wand = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8),
-      new THREE.MeshStandardMaterial({ color: 0xfdf6ff })
+    const evaTexture = new THREE.TextureLoader().load("eva.png");
+    const evaSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: evaTexture, transparent: true })
     );
-    wand.position.set(0.45, 1.1, 0.2);
-    wand.rotation.z = Math.PI / 4;
-    busGroup.add(wand);
-    const wandTip = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 12, 12),
-      new THREE.MeshStandardMaterial({ color: 0xfff3a1, emissive: 0xfff3a1 })
-    );
-    wandTip.position.set(0.65, 1.35, 0.35);
-    busGroup.add(wandTip);
+    evaSprite.scale.set(0.5, 0.5, 0.5);
+    evaSprite.position.set(0, 1.1, 0);
+    busGroup.add(evaSprite);
 
     busGroup.position.set(0, -0.2, 3.5);
+
+    const cloudTexture = (() => {
+      const cloudCanvas = document.createElement("canvas");
+      cloudCanvas.width = 256;
+      cloudCanvas.height = 128;
+      const ctx = cloudCanvas.getContext("2d");
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.beginPath();
+      ctx.ellipse(70, 70, 55, 35, 0, 0, Math.PI * 2);
+      ctx.ellipse(120, 55, 65, 45, 0, 0, Math.PI * 2);
+      ctx.ellipse(170, 70, 50, 32, 0, 0, Math.PI * 2);
+      ctx.fill();
+      return new THREE.CanvasTexture(cloudCanvas);
+    })();
+
+    const clouds = [];
+    const cloudCount = 18;
+    for (let i = 0; i < cloudCount; i++) {
+      const cloud = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: cloudTexture, transparent: true, opacity: 0.85 })
+      );
+      cloud.scale.set(6 + Math.random() * 6, 3 + Math.random() * 3, 1);
+      cloud.position.set(
+        (Math.random() - 0.5) * 20,
+        2 + Math.random() * 6,
+        -10 - Math.random() * 60
+      );
+      cloud.userData = { speedFactor: 0.4 + Math.random() * 0.6 };
+      clouds.push(cloud);
+      scene.add(cloud);
+    }
 
     const cloudTexture = (() => {
       const cloudCanvas = document.createElement("canvas");
