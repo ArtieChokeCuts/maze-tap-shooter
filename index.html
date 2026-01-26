@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Super Eva's Magic Bus Ride</title>
+  <link rel="icon" href="data:," />
   <style>
     * {
       box-sizing: border-box;
@@ -12,10 +13,50 @@
     }
     body {
       overflow: hidden;
-      background: radial-gradient(circle at top, #fef6ff 0%, #cce7ff 45%, #fff7cc 100%);
+      background: #87ceeb;
       font-family: "Comic Sans MS", "Trebuchet MS", sans-serif;
       color: #4b3b6b;
       touch-action: none;
+    }
+    #splash-screen {
+      position: fixed;
+      inset: 0;
+      background: url("splash.png") center center / cover no-repeat;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    #start-button {
+      border: none;
+      background: #ffe44d;
+      color: #5c3d00;
+      font-size: 1.8rem;
+      padding: 16px 40px;
+      border-radius: 999px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(255, 228, 77, 0.5);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    #start-button:focus-visible {
+      outline: 4px solid rgba(255, 255, 255, 0.8);
+      outline-offset: 4px;
+    }
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 12px 30px rgba(255, 228, 77, 0.5);
+      }
+      50% {
+        transform: scale(1.08);
+        box-shadow: 0 16px 40px rgba(255, 228, 77, 0.75);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 12px 30px rgba(255, 228, 77, 0.5);
+      }
     }
     canvas {
       display: block;
@@ -74,6 +115,9 @@
   </style>
 </head>
 <body>
+  <div id="splash-screen">
+    <button id="start-button" type="button">START GAME</button>
+  </div>
   <div id="title">Super Eva's Magic Bus Ride</div>
   <div id="letter-popup"></div>
   <div id="helper">Tap a bubble to pop it with your magic wand!</div>
@@ -87,6 +131,8 @@
     const uiCanvas = document.getElementById("ui");
     const hudCanvas = document.getElementById("hud");
     const letterPopup = document.getElementById("letter-popup");
+    const splashScreen = document.getElementById("splash-screen");
+    const startButton = document.getElementById("start-button");
 
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -106,30 +152,6 @@
 
     const uiCtx = uiCanvas.getContext("2d");
     const hudCtx = hudCanvas.getContext("2d");
-
-    const pastelColors = [0xffc1e3, 0xb5e4ff, 0xfff0a6];
-
-    const tunnelGroup = new THREE.Group();
-    const ringCount = 20;
-    const ringSpacing = 2.2;
-    for (let i = 0; i < ringCount; i++) {
-      const color = pastelColors[i % pastelColors.length];
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(6, 0.12, 12, 80),
-        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.3 })
-      );
-      ring.position.z = -i * ringSpacing;
-      ring.rotation.x = Math.PI / 2;
-      tunnelGroup.add(ring);
-    }
-    scene.add(tunnelGroup);
-
-    const roadMaterial = new THREE.MeshStandardMaterial({ color: 0xffe2f4, roughness: 0.4, metalness: 0.1 });
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(14, 80), roadMaterial);
-    road.rotation.x = -Math.PI / 2;
-    road.position.y = -0.2;
-    road.position.z = -25;
-    scene.add(road);
 
     const skyGlow = new THREE.Mesh(
       new THREE.SphereGeometry(30, 32, 32),
@@ -152,34 +174,13 @@
       busGroup.add(stripe);
     });
 
-    const heroBody = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.22, 0.3, 0.7, 12),
-      new THREE.MeshStandardMaterial({ color: 0x663399 })
+    const evaTexture = new THREE.TextureLoader().load("eva.png");
+    const evaSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: evaTexture, transparent: true })
     );
-    heroBody.position.set(0, 0.95, 0);
-    busGroup.add(heroBody);
-    const heroHead = new THREE.Mesh(
-      new THREE.SphereGeometry(0.24, 16, 16),
-      new THREE.MeshStandardMaterial({ color: 0x8d5524 })
-    );
-    heroHead.position.set(0, 1.5, 0);
-    busGroup.add(heroHead);
-    const hairPuffLeft = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 16, 16),
-      new THREE.MeshStandardMaterial({ color: 0x111111 })
-    );
-    hairPuffLeft.position.set(-0.25, 1.75, 0);
-    busGroup.add(hairPuffLeft);
-    const hairPuffRight = hairPuffLeft.clone();
-    hairPuffRight.position.set(0.25, 1.75, 0);
-    busGroup.add(hairPuffRight);
-    const heroCape = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.7, 0.8),
-      new THREE.MeshStandardMaterial({ color: 0xff69b4, side: THREE.DoubleSide })
-    );
-    heroCape.position.set(0, 0.95, -0.5);
-    heroCape.rotation.x = -0.35;
-    busGroup.add(heroCape);
+    evaSprite.scale.set(4, 4, 4);
+    evaSprite.position.set(0, 1.1, 0);
+    busGroup.add(evaSprite);
 
     const wand = new THREE.Mesh(
       new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8),
@@ -197,6 +198,37 @@
 
     busGroup.position.set(0, -0.2, 3.5);
     scene.add(busGroup);
+
+    const cloudTexture = (() => {
+      const cloudCanvas = document.createElement("canvas");
+      cloudCanvas.width = 256;
+      cloudCanvas.height = 128;
+      const ctx = cloudCanvas.getContext("2d");
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.beginPath();
+      ctx.ellipse(70, 70, 55, 35, 0, 0, Math.PI * 2);
+      ctx.ellipse(120, 55, 65, 45, 0, 0, Math.PI * 2);
+      ctx.ellipse(170, 70, 50, 32, 0, 0, Math.PI * 2);
+      ctx.fill();
+      return new THREE.CanvasTexture(cloudCanvas);
+    })();
+
+    const clouds = [];
+    const cloudCount = 18;
+    for (let i = 0; i < cloudCount; i++) {
+      const cloud = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: cloudTexture, transparent: true, opacity: 0.85 })
+      );
+      cloud.scale.set(6 + Math.random() * 6, 3 + Math.random() * 3, 1);
+      cloud.position.set(
+        (Math.random() - 0.5) * 20,
+        2 + Math.random() * 6,
+        -10 - Math.random() * 60
+      );
+      cloud.userData = { speedFactor: 0.4 + Math.random() * 0.6 };
+      clouds.push(cloud);
+      scene.add(cloud);
+    }
 
     const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
     const numbers = Array.from({ length: 20 }, (_, i) => String(i + 1));
@@ -298,8 +330,58 @@
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
+    const targetSequence = ["E", "V", "A"];
+    let sequenceIndex = 0;
+    let easterEggTriggered = false;
+
+    const loopAudio = new Audio("loop.mp3");
+    loopAudio.loop = true;
+    const evaThemeAudio = new Audio("eva_theme.mp3");
+    const popAudio = new Audio("pop.mp3");
+    const magicAudio = new Audio("magic.mp3");
+
+    let isGameStarted = false;
+
+    function enterFullscreen() {
+      if (document.fullscreenElement) {
+        return Promise.resolve();
+      }
+      if (document.documentElement.requestFullscreen) {
+        return document.documentElement.requestFullscreen();
+      }
+      return Promise.resolve();
+    }
+
+    function startGame() {
+      if (isGameStarted) {
+        return;
+      }
+      isGameStarted = true;
+      splashScreen.style.display = "none";
+      enterFullscreen();
+      loopAudio.currentTime = 0;
+      loopAudio.play().catch(() => {});
+    }
+
+    startButton.addEventListener("click", startGame);
+    startButton.addEventListener("pointerdown", startGame);
+    splashScreen.addEventListener("pointerdown", (event) => {
+      if (event.target === startButton) {
+        return;
+      }
+      startGame();
+    });
+    window.addEventListener("keydown", (event) => {
+      if (!isGameStarted && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        startGame();
+      }
+    });
 
     function handleTap(event) {
+      if (!isGameStarted) {
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       const x = (event.clientX - rect.left) / rect.width;
       const y = (event.clientY - rect.top) / rect.height;
@@ -331,6 +413,8 @@
         const screenY = (-vector.y * 0.5 + 0.5) * window.innerHeight;
         addSparkles(screenX, screenY);
         showLetter(label);
+        popAudio.currentTime = 0;
+        popAudio.play().catch(() => {});
         closestBubble.userData.popProgress = 0.01;
         poppingBubbles.add(closestBubble);
         magicBursts.push({
@@ -338,6 +422,24 @@
           x: screenX,
           y: screenY
         });
+        magicAudio.currentTime = 0;
+        magicAudio.play().catch(() => {});
+
+        if (!easterEggTriggered) {
+          if (label === targetSequence[sequenceIndex]) {
+            sequenceIndex += 1;
+            if (sequenceIndex === targetSequence.length) {
+              easterEggTriggered = true;
+              loopAudio.pause();
+              evaThemeAudio.currentTime = 0;
+              evaThemeAudio.play().catch(() => {});
+            }
+          } else if (label === targetSequence[0]) {
+            sequenceIndex = 1;
+          } else {
+            sequenceIndex = 0;
+          }
+        }
       }
     }
 
@@ -365,10 +467,18 @@
       const delta = (time - lastTime) / 16.666;
       lastTime = time;
 
-      tunnelGroup.children.forEach((ring) => {
-        ring.position.z += speed * delta;
-        if (ring.position.z > camera.position.z) {
-          ring.position.z = -ringCount * ringSpacing;
+      if (!isGameStarted) {
+        renderer.render(scene, camera);
+        return;
+      }
+
+      clouds.forEach((cloud) => {
+        cloud.position.z += speed * 10 * cloud.userData.speedFactor * delta;
+        if (cloud.position.z > camera.position.z + 2) {
+          cloud.position.z = -70 - Math.random() * 40;
+          cloud.position.x = (Math.random() - 0.5) * 20;
+          cloud.position.y = 2 + Math.random() * 6;
+          cloud.scale.set(6 + Math.random() * 6, 3 + Math.random() * 3, 1);
         }
       });
 
@@ -395,7 +505,6 @@
 
       const hoverOffset = Math.sin(time * 0.003) * 0.08;
       busGroup.position.y = -0.1 + hoverOffset;
-      heroCape.rotation.x = -0.35 + Math.sin(time * 0.004) * 0.08;
       wandTip.scale.setScalar(1 + Math.sin(time * 0.01) * 0.1);
       const cameraTarget = new THREE.Vector3(0, 1.6 + hoverOffset, 5.5);
       camera.position.lerp(cameraTarget, 0.06);
