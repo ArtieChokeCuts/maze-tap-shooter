@@ -160,25 +160,12 @@
     scene.add(skyGlow);
 
     const busGroup = new THREE.Group();
-    const hoverBus = new THREE.Mesh(
-      new THREE.BoxGeometry(2.8, 0.4, 1.6),
-      new THREE.MeshStandardMaterial({ color: 0xffeb3b })
-    );
-    hoverBus.position.y = 0.1;
-    busGroup.add(hoverBus);
-    const stripeMaterial = new THREE.MeshStandardMaterial({ color: 0x111111 });
-    const stripeGeometry = new THREE.PlaneGeometry(2.2, 0.12);
-    [-0.15, 0.15].forEach((y) => {
-      const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
-      stripe.position.set(0, y, 0.81);
-      busGroup.add(stripe);
-    });
 
     const evaTexture = new THREE.TextureLoader().load("eva.png");
     const evaSprite = new THREE.Sprite(
       new THREE.SpriteMaterial({ map: evaTexture, transparent: true })
     );
-    evaSprite.scale.set(4, 4, 4);
+    evaSprite.scale.set(0.5, 0.5, 0.5);
     evaSprite.position.set(0, 1.1, 0);
     busGroup.add(evaSprite);
 
