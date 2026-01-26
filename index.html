@@ -169,21 +169,6 @@
     evaSprite.position.set(0, 1.1, 0);
     busGroup.add(evaSprite);
 
-    const wand = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8),
-      new THREE.MeshStandardMaterial({ color: 0xfdf6ff })
-    );
-    wand.position.set(0.45, 1.1, 0.2);
-    wand.rotation.z = Math.PI / 4;
-    busGroup.add(wand);
-    const wandTip = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 12, 12),
-      new THREE.MeshStandardMaterial({ color: 0xfff3a1, emissive: 0xfff3a1 })
-    );
-    wandTip.position.set(0.65, 1.35, 0.35);
-    busGroup.add(wandTip);
-
-    busGroup.position.set(0, -0.2, 3.5);
     scene.add(busGroup);
 
     const cloudTexture = (() => {
