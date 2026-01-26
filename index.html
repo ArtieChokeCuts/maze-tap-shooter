@@ -160,6 +160,7 @@
     scene.add(skyGlow);
 
     const busGroup = new THREE.Group();
+    scene.add(busGroup);
 
     const evaTexture = new THREE.TextureLoader().load("eva.png");
     const evaSprite = new THREE.Sprite(
@@ -169,7 +170,46 @@
     evaSprite.position.set(0, 1.1, 0);
     busGroup.add(evaSprite);
 
-    scene.add(busGroup);
+    const evaTexture = new THREE.TextureLoader().load("eva.png");
+    const evaSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: evaTexture, transparent: true })
+    );
+    evaSprite.scale.set(0.5, 0.5, 0.5);
+    evaSprite.position.set(0, 1.1, 0);
+    busGroup.add(evaSprite);
+
+    busGroup.position.set(0, -0.2, 3.5);
+
+    const cloudTexture = (() => {
+      const cloudCanvas = document.createElement("canvas");
+      cloudCanvas.width = 256;
+      cloudCanvas.height = 128;
+      const ctx = cloudCanvas.getContext("2d");
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.beginPath();
+      ctx.ellipse(70, 70, 55, 35, 0, 0, Math.PI * 2);
+      ctx.ellipse(120, 55, 65, 45, 0, 0, Math.PI * 2);
+      ctx.ellipse(170, 70, 50, 32, 0, 0, Math.PI * 2);
+      ctx.fill();
+      return new THREE.CanvasTexture(cloudCanvas);
+    })();
+
+    const clouds = [];
+    const cloudCount = 18;
+    for (let i = 0; i < cloudCount; i++) {
+      const cloud = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: cloudTexture, transparent: true, opacity: 0.85 })
+      );
+      cloud.scale.set(6 + Math.random() * 6, 3 + Math.random() * 3, 1);
+      cloud.position.set(
+        (Math.random() - 0.5) * 20,
+        2 + Math.random() * 6,
+        -10 - Math.random() * 60
+      );
+      cloud.userData = { speedFactor: 0.4 + Math.random() * 0.6 };
+      clouds.push(cloud);
+      scene.add(cloud);
+    }
 
     const cloudTexture = (() => {
       const cloudCanvas = document.createElement("canvas");
