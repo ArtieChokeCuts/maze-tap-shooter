@@ -160,28 +160,15 @@
     scene.add(skyGlow);
 
     const busGroup = new THREE.Group();
-    
-    );
-    hoverBus.position.y = 0.1;
-    busGroup.add(hoverBus);
-    const stripeMaterial = new THREE.MeshStandardMaterial({ color: 0x111111 });
-    const stripeGeometry = new THREE.PlaneGeometry(2.2, 0.12);
-    [-0.15, 0.15].forEach((y) => {
-      const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
-      stripe.position.set(0, y, 0.81);
-      busGroup.add(stripe);
-    });
 
     const evaTexture = new THREE.TextureLoader().load("eva.png");
     const evaSprite = new THREE.Sprite(
       new THREE.SpriteMaterial({ map: evaTexture, transparent: true })
     );
+    evaSprite.scale.set(0.5, 0.5, 0.5);
     evaSprite.position.set(0, 1.1, 0);
     busGroup.add(evaSprite);
 
-    const wand = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8),
-    
     scene.add(busGroup);
 
     const cloudTexture = (() => {
@@ -349,6 +336,19 @@
     }
 
     startButton.addEventListener("click", startGame);
+    startButton.addEventListener("pointerdown", startGame);
+    splashScreen.addEventListener("pointerdown", (event) => {
+      if (event.target === startButton) {
+        return;
+      }
+      startGame();
+    });
+    window.addEventListener("keydown", (event) => {
+      if (!isGameStarted && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        startGame();
+      }
+    });
 
     function handleTap(event) {
       if (!isGameStarted) {
