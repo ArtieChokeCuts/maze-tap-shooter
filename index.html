@@ -92,8 +92,8 @@
 
         .star-box {
             position: relative;
-            width: 150px;
-            height: 150px;
+            width: min(240px, 45vw);
+            height: min(240px, 45vw);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -102,7 +102,7 @@
 
         .star-shape {
             position: absolute;
-            font-size: 240px;
+            font-size: min(240px, 45vw);
             filter: drop-shadow(0 4px 10px rgba(0,0,0,0.2));
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -162,7 +162,7 @@
         .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
         @keyframes shake { 10%, 90% { transform: translate3d(-2px, 0, 0); } 20%, 80% { transform: translate3d(4px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-6px, 0, 0); } 40%, 60% { transform: translate3d(6px, 0, 0); } }
 
-        canvas { display: block; position: absolute; inset: 0; }
+        canvas { display: block; position: absolute; inset: 0; z-index: 1; }
         #bottom-ui {
             position: absolute;
             bottom: 10px;
@@ -522,21 +522,31 @@
         }
 
         function triggerWin(type) {
-            // Smoothly fade out the loop
+            // Smoothly fade out the loop before the anthem
             const fadeOut = setInterval(() => {
-                if (audio.bg.volume > 0.05) audio.bg.volume -= 0.05;
-                else {
-                    audio.bg.pause();
-                    clearInterval(fadeOut);
+                if (audio.bg.volume > 0.05) {
+                    audio.bg.volume -= 0.05;
+                    return;
                 }
+                audio.bg.volume = 0;
+                audio.bg.pause();
+                clearInterval(fadeOut);
+                audio.theme.currentTime = 0;
+                audio.theme.play();
             }, 50);
-
-            // Play the Anthem
-            audio.theme.currentTime = 0;
-            audio.theme.play();
             
             // Confetti / Particles (Simple JS Burst)
             createParticles();
+            state.numberSum = 0;
+            state.wordIndex = 0;
+
+            // Resume BG after theme
+            setTimeout(() => {
+                if (state.playing) {
+                    audio.bg.volume = bgBaseVolume;
+                    audio.bg.play();
+                }
+            }, 8000);
 
             // Resume BG after theme
             setTimeout(() => {
@@ -744,6 +754,10 @@
             const time = performance.now() * 0.001;
 
             if (state.playing) {
+                const targetCount = getLevelConfig().bubbleCount;
+                if (bubbles.length < targetCount) {
+                    ensureBubbleCount(targetCount);
+                }
                 // Move Bubbles
                 bubbles.forEach(b => {
                     b.position.z += b.userData.speedZ;
