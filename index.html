@@ -548,6 +548,14 @@
                 }
             }, 8000);
 
+            // Resume BG after theme
+            setTimeout(() => {
+                if (state.playing) {
+                    audio.bg.volume = bgBaseVolume;
+                    audio.bg.play();
+                }
+            }, 8000);
+
             if (type === "WORD") {
                 state.levelLetters++;
                 document.getElementById('bar-left').style.height = (state.levelLetters * 10) + "%";
