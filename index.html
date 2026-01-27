@@ -1,575 +1,543 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Super Eva's Magic Bus Ride</title>
-  <link rel="icon" href="data:," />
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      overflow: hidden;
-      background: #87ceeb;
-      font-family: "Comic Sans MS", "Trebuchet MS", sans-serif;
-      color: #4b3b6b;
-      touch-action: none;
-    }
-    #splash-screen {
-      position: fixed;
-      inset: 0;
-      background: url("splash.png") center center / cover no-repeat;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10;
-    }
-    #start-button {
-      border: none;
-      background: #ffe44d;
-      color: #5c3d00;
-      font-size: 1.8rem;
-      padding: 16px 40px;
-      border-radius: 999px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      cursor: pointer;
-      box-shadow: 0 12px 30px rgba(255, 228, 77, 0.5);
-      animation: pulse 1.6s ease-in-out infinite;
-    }
-    #start-button:focus-visible {
-      outline: 4px solid rgba(255, 255, 255, 0.8);
-      outline-offset: 4px;
-    }
-    @keyframes pulse {
-      0% {
-        transform: scale(1);
-        box-shadow: 0 12px 30px rgba(255, 228, 77, 0.5);
-      }
-      50% {
-        transform: scale(1.08);
-        box-shadow: 0 16px 40px rgba(255, 228, 77, 0.75);
-      }
-      100% {
-        transform: scale(1);
-        box-shadow: 0 12px 30px rgba(255, 228, 77, 0.5);
-      }
-    }
-    canvas {
-      display: block;
-      position: absolute;
-      inset: 0;
-    }
-    #ui {
-      z-index: 2;
-      pointer-events: none;
-    }
-    #hud {
-      position: absolute;
-      inset: 0;
-      z-index: 3;
-      pointer-events: none;
-    }
-    #title {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 255, 255, 0.8);
-      padding: 10px 24px;
-      border-radius: 999px;
-      font-size: 1.4rem;
-      color: #6b4fc7;
-      box-shadow: 0 8px 20px rgba(126, 87, 194, 0.2);
-      z-index: 4;
-      text-align: center;
-      letter-spacing: 0.5px;
-    }
-    #letter-popup {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: clamp(3rem, 10vw, 6rem);
-      color: #ff6fae;
-      text-shadow: 0 6px 18px rgba(255, 111, 174, 0.5);
-      opacity: 0;
-      transition: opacity 0.25s ease;
-      z-index: 4;
-      pointer-events: none;
-    }
-    #helper {
-      position: absolute;
-      bottom: 18px;
-      width: 100%;
-      text-align: center;
-      font-size: 1rem;
-      color: #5a5a8f;
-      z-index: 4;
-      text-shadow: 0 2px 6px rgba(255, 255, 255, 0.8);
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Super Eva's Magic Bus Ride</title>
+    <style>
+        /* --- CORE STYLES --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        body { 
+            overflow: hidden; 
+            background: #fdf2f8; /* Soft Pink Base */
+            font-family: "Comic Sans MS", "Trebuchet MS", sans-serif; 
+            touch-action: none; 
+        }
+
+        /* --- UI LAYER (The HUD) --- */
+        #ui-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        /* Frosted Glass Panels */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.35);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 20px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+            width: 100px;
+            transition: all 0.3s ease;
+        }
+
+        .panel-label {
+            font-weight: 900;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 4px rgba(255,255,255,0.8);
+        }
+
+        /* Liquid Progress Bars */
+        .bar-container {
+            width: 24px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%; /* Dynamic Height */
+            transition: height 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Left Panel (Letters) */
+        #panel-left { color: #d63384; }
+        #bar-left .liquid { background: linear-gradient(to top, #d63384, #ff6fae); }
+
+        /* Right Panel (Numbers) */
+        #panel-right { color: #198754; opacity: 0.5; /* Dimmed until unlocked */ }
+        #bar-right .liquid { background: linear-gradient(to top, #198754, #20c997); }
+
+        /* --- CENTER STARS (The Targets) --- */
+        #top-center {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        .star-box {
+            position: relative;
+            width: 110px;
+            height: 110px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .star-shape {
+            position: absolute;
+            font-size: 110px;
+            filter: drop-shadow(0 4px 10px rgba(0,0,0,0.2));
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .star-content {
+            position: relative;
+            z-index: 2;
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: white;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+            text-align: center;
+            line-height: 1;
+        }
+
+        /* Left Star (Yellow/Gold) */
+        #star-left .star-shape { color: #ffc107; -webkit-text-stroke: 4px #b8860b; }
+        
+        /* Right Star (Orange) */
+        #star-right .star-shape { color: #fd7e14; -webkit-text-stroke: 4px #c2410c; }
+        #star-right { display: none; /* Hidden until Eva is found */ }
+
+        /* --- SPLASH SCREEN --- */
+        #splash-screen {
+            position: fixed; inset: 0; z-index: 100;
+            background: url("splash.png") center center / cover no-repeat;
+            background-color: #87ceeb; /* Fallback */
+            display: flex; align-items: center; justify-content: center;
+        }
+        #start-btn {
+            padding: 20px 50px; font-size: 2rem; font-weight: 900;
+            color: #5c3d00; background: #ffe44d; border: 4px solid #fff;
+            border-radius: 50px; cursor: pointer;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Animations */
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        
+        .pop-anim { animation: popIn 0.4s forwards; }
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-2px, 0, 0); } 20%, 80% { transform: translate3d(4px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-6px, 0, 0); } 40%, 60% { transform: translate3d(6px, 0, 0); } }
+
+        canvas { display: block; position: absolute; inset: 0; }
+        #helper { position: absolute; bottom: 10px; width: 100%; text-align: center; color: #666; font-size: 0.9rem; }
+    </style>
 </head>
 <body>
-  <div id="splash-screen">
-    <button id="start-button" type="button">START GAME</button>
-  </div>
-  <div id="title">Super Eva's Magic Bus Ride</div>
-  <div id="letter-popup"></div>
-  <div id="helper">Tap a bubble to pop it with your magic wand!</div>
-  <canvas id="webgl"></canvas>
-  <canvas id="ui"></canvas>
-  <canvas id="hud"></canvas>
 
-  <script src="three.min.js"></script>
-  <script>
-    let canvas;
-    let uiCanvas;
-    let hudCanvas;
-    let letterPopup;
-    let splashScreen;
-    let startButton;
-    let renderer;
-    let scene;
-    let camera;
-    let uiCtx;
-    let hudCtx;
-    let busGroup;
-    let wandTip;
-    let bubbleLabels = [];
-    let bubbleGeometry;
-    let bubbleMaterial;
-    let loopAudio;
-    let evaThemeAudio;
-    let popAudio;
-    let magicAudio;
-    let isGameStarted = false;
-    let lastTime = 0;
+    <div id="splash-screen">
+        <button id="start-btn">PLAY!</button>
+    </div>
 
-    const bubbles = [];
-    const poppingBubbles = new Set();
-    const sparkles = [];
-    const magicBursts = [];
-    const clouds = [];
-    const raycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-    const targetSequence = ["E", "V", "A"];
-    const speed = 0.04;
-    let sequenceIndex = 0;
-    let easterEggTriggered = false;
+    <div id="top-center">
+        <div id="star-left" class="star-box">
+            <div class="star-shape">★</div>
+            <div class="star-content" id="target-word">EVA</div>
+        </div>
+        <div id="star-right" class="star-box">
+            <div class="star-shape">★</div>
+            <div class="star-content" id="target-num">25</div>
+        </div>
+    </div>
 
-    function makeTextSprite(text) {
-      const size = 256;
-      const textCanvas = document.createElement("canvas");
-      textCanvas.width = size;
-      textCanvas.height = size;
-      const ctx = textCanvas.getContext("2d");
-      ctx.fillStyle = "rgba(255, 255, 255, 0.0)";
-      ctx.fillRect(0, 0, size, size);
-      ctx.font = "bold 120px Comic Sans MS";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "#6b4fc7";
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 10;
-      ctx.strokeText(text, size / 2, size / 2 + 4);
-      ctx.fillText(text, size / 2, size / 2 + 4);
+    <div id="ui-layer">
+        <div style="display:flex; justify-content:space-between; width:100%;">
+            <div id="panel-left" class="glass-panel">
+                <div class="panel-label">Letters</div>
+                <div class="bar-container"><div id="bar-left" class="liquid"></div></div>
+            </div>
 
-      const texture = new THREE.CanvasTexture(textCanvas);
-      texture.minFilter = THREE.LinearFilter;
-      const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-      const sprite = new THREE.Sprite(material);
-      sprite.scale.set(1.2, 1.2, 1.2);
-      return sprite;
-    }
+            <div id="panel-right" class="glass-panel">
+                <div class="panel-label">Numbers</div>
+                <div class="bar-container"><div id="bar-right" class="liquid"></div></div>
+            </div>
+        </div>
+        <div id="helper">Tap the bubbles in order!</div>
+    </div>
 
-    function spawnBubble(existingBubble) {
-      const label = bubbleLabels[Math.floor(Math.random() * bubbleLabels.length)];
-      const bubble = existingBubble || new THREE.Mesh(bubbleGeometry, bubbleMaterial.clone());
-      bubble.material.color.setHSL(Math.random(), 0.4, 0.85);
-      bubble.material.opacity = 0.55;
-      bubble.scale.setScalar(1);
-      bubble.position.set(
-        (Math.random() - 0.5) * 10,
-        1 + Math.random() * 4,
-        -10 - Math.random() * 40
-      );
-      bubble.userData = {
-        label,
-        floatOffset: Math.random() * Math.PI * 2,
-        sprite: bubble.userData ? bubble.userData.sprite : null,
-        popProgress: 0
-      };
-      if (bubble.userData.sprite) {
-        bubble.remove(bubble.userData.sprite);
-      }
-      const sprite = makeTextSprite(label);
-      sprite.position.set(0, 0, 0.6);
-      bubble.add(sprite);
-      bubble.userData.sprite = sprite;
-      if (!existingBubble) {
-        scene.add(bubble);
-        bubbles.push(bubble);
-      }
-    }
+    <canvas id="webgl"></canvas>
 
-    function addSparkles(screenX, screenY) {
-      for (let i = 0; i < 18; i++) {
-        sparkles.push({
-          x: screenX,
-          y: screenY,
-          vx: (Math.random() - 0.5) * 3,
-          vy: (Math.random() - 0.7) * 3,
-          life: 1
-        });
-      }
-    }
+    <script src="three.min.js"></script>
+    <script>
+        // --- GAME STATE ---
+        const state = {
+            playing: false,
+            levelLetters: 0,
+            levelNumbers: 0,
+            targetWord: "EVA", // First Word ALWAYS
+            targetNum: "25",
+            wordIndex: 0, // Current letter progress (0 = needs first letter)
+            numbersUnlocked: false,
+            wordList: ["IAN", "ASA", "MAMA", "POP", "ART", "CAT", "DOG", "BUS"], // Pool after EVA
+            numberList: ["5", "10", "15", "20", "25", "50", "100"]
+        };
 
-    function showLetter(label) {
-      letterPopup.textContent = label;
-      letterPopup.style.opacity = "1";
-      clearTimeout(showLetter._timeout);
-      showLetter._timeout = setTimeout(() => {
-        letterPopup.style.opacity = "0";
-      }, 900);
-    }
+        // --- AUDIO ---
+        const audio = {
+            bg: new Audio('loop.mp3'),
+            theme: new Audio('eva_theme.mp3'),
+            pop: new Audio('pop.mp3'),
+            magic: new Audio('magic.mp3')
+        };
+        audio.bg.loop = true;
+        audio.bg.volume = 0.4;
+        audio.theme.volume = 1.0; 
 
-    function enterFullscreen() {
-      if (document.fullscreenElement) {
-        return Promise.resolve();
-      }
-      if (document.documentElement.requestFullscreen) {
-        return document.documentElement.requestFullscreen();
-      }
-      return Promise.resolve();
-    }
+        // --- THREE.JS SETUP ---
+        let scene, camera, renderer, busGroup, wandTip;
+        const bubbles = [];
+        const particles = [];
+        let bubbleLabels = "E V A I N S M O P 1 2 3 4 5".split(" "); // Initial pool
 
-    function handleTap(event) {
-      if (!isGameStarted) {
-        return;
-      }
-      const rect = canvas.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / rect.width;
-      const y = (event.clientY - rect.top) / rect.height;
-      pointer.x = x * 2 - 1;
-      pointer.y = -(y * 2 - 1);
-
-      raycaster.setFromCamera(pointer, camera);
-
-      let closestBubble = null;
-      let closestDistance = Infinity;
-      bubbles.forEach((bubble) => {
-        if (bubble.userData.popProgress > 0) {
-          return;
-        }
-        const distanceToRay = raycaster.ray.distanceToPoint(bubble.position);
-        if (distanceToRay < 1.4) {
-          const camDistance = bubble.position.distanceTo(camera.position);
-          if (camDistance < closestDistance) {
-            closestDistance = camDistance;
-            closestBubble = bubble;
-          }
-        }
-      });
-
-      if (closestBubble) {
-        const label = closestBubble.userData.label;
-        const vector = closestBubble.position.clone().project(camera);
-        const screenX = (vector.x * 0.5 + 0.5) * window.innerWidth;
-        const screenY = (-vector.y * 0.5 + 0.5) * window.innerHeight;
-        addSparkles(screenX, screenY);
-        showLetter(label);
-        popAudio.currentTime = 0;
-        popAudio.play().catch(() => {});
-        closestBubble.userData.popProgress = 0.01;
-        poppingBubbles.add(closestBubble);
-        magicBursts.push({
-          start: performance.now(),
-          x: screenX,
-          y: screenY
-        });
-        magicAudio.currentTime = 0;
-        magicAudio.play().catch(() => {});
-
-        if (!easterEggTriggered) {
-          if (label === targetSequence[sequenceIndex]) {
-            sequenceIndex += 1;
-            if (sequenceIndex === targetSequence.length) {
-              easterEggTriggered = true;
-              loopAudio.pause();
-              evaThemeAudio.currentTime = 0;
-              evaThemeAudio.play().catch(() => {});
+        function init() {
+            if (!window.THREE) {
+                console.error('Three.js failed to load.');
+                return;
             }
-          } else if (label === targetSequence[0]) {
-            sequenceIndex = 1;
-          } else {
-            sequenceIndex = 0;
-          }
+            // Scene
+            const canvas = document.querySelector('#webgl');
+            renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            scene = new THREE.Scene();
+            // Gradient Sky Mesh
+            const skyGeo = new THREE.SphereGeometry(40, 32, 32);
+            const skyMat = new THREE.MeshBasicMaterial({ color: 0xffe6f2, side: THREE.BackSide }); 
+            scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+            camera.position.set(0, 0, 5);
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            // The Bus & Eva
+            busGroup = new THREE.Group();
+            scene.add(busGroup);
+
+            // Eva Sprite
+            const loader = new THREE.TextureLoader();
+            loader.load('eva.png', (tex) => {
+                const mat = new THREE.SpriteMaterial({ map: tex });
+                const sprite = new THREE.Sprite(mat);
+                sprite.scale.set(1.5, 1.5, 1);
+                busGroup.add(sprite);
+            });
+
+            // Wand Tip (Invisible target for sparkles)
+            wandTip = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({ visible: false }));
+            wandTip.position.set(0.5, 0.5, 0);
+            busGroup.add(wandTip);
+
+            // Initial Bubbles
+            for(let i=0; i<15; i++) spawnBubble();
+
+            // Events
+            window.addEventListener('resize', onResize);
+            window.addEventListener('pointerdown', onTap);
+            document.getElementById('start-btn').addEventListener('click', startGame);
+            
+            animate();
         }
-      }
-    }
 
-    function resize() {
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      uiCanvas.width = window.innerWidth;
-      uiCanvas.height = window.innerHeight;
-      hudCanvas.width = window.innerWidth;
-      hudCanvas.height = window.innerHeight;
-    }
+        function spawnBubble(recycleBubble = null) {
+            const bubble = recycleBubble || new THREE.Mesh(
+                new THREE.SphereGeometry(0.4, 32, 32),
+                new THREE.MeshStandardMaterial({
+                    color: 0xffffff, roughness: 0.1, metalness: 0.1,
+                    transparent: true, opacity: 0.6
+                })
+            );
 
-    function animate(time) {
-      requestAnimationFrame(animate);
-      const delta = (time - lastTime) / 16.666;
-      lastTime = time;
+            // Pick a label
+            // Hint Logic: If we need "E", spawn more "E"s
+            let char;
+            if (Math.random() < 0.4) {
+                // 40% chance to spawn exactly what we need
+                char = state.targetWord[state.wordIndex];
+            } else if (state.numbersUnlocked && Math.random() < 0.3) {
+                 // 30% chance for number
+                char = state.targetNum;
+            } else {
+                // Random junk
+                const pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789";
+                char = pool[Math.floor(Math.random() * pool.length)];
+            }
 
-      if (!isGameStarted) {
-        renderer.render(scene, camera);
-        return;
-      }
+            // Create Text Sprite
+            if (bubble.userData.sprite) bubble.remove(bubble.userData.sprite);
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.font = "bold 80px Comic Sans MS";
+            ctx.fillStyle = "#6b4fc7";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(char, 64, 64);
+            const tex = new THREE.CanvasTexture(canvas);
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+            sprite.scale.set(0.6, 0.6, 1);
+            bubble.add(sprite);
+            
+            // Random Position
+            const x = (Math.random() - 0.5) * 6;
+            const y = -4 - Math.random() * 5; // Start below screen
+            const z = (Math.random() - 0.5) * 2;
+            bubble.position.set(x, y, z);
+            
+            bubble.userData = { 
+                label: char, 
+                sprite: sprite, 
+                speed: 0.02 + Math.random() * 0.03,
+                wobble: Math.random() * Math.PI 
+            };
 
-      clouds.forEach((cloud) => {
-        cloud.position.z += speed * 10 * cloud.userData.speedFactor * delta;
-        if (cloud.position.z > camera.position.z + 2) {
-          cloud.position.z = -70 - Math.random() * 40;
-          cloud.position.x = (Math.random() - 0.5) * 20;
-          cloud.position.y = 2 + Math.random() * 6;
-          cloud.scale.set(6 + Math.random() * 6, 3 + Math.random() * 3, 1);
+            if (!recycleBubble) {
+                scene.add(bubble);
+                bubbles.push(bubble);
+            }
         }
-      });
 
-      bubbles.forEach((bubble) => {
-        if (bubble.userData.popProgress <= 0) {
-          bubble.position.z += speed * 1.2 * delta;
+        function startGame() {
+            document.getElementById('splash-screen').style.display = 'none';
+            state.playing = true;
+            audio.bg.play().catch(e => console.log("Audio needs interaction"));
+            updateHUD();
         }
-        bubble.position.y += Math.sin(time * 0.002 + bubble.userData.floatOffset) * 0.005;
-        if (bubble.position.z > camera.position.z + 1) {
-          spawnBubble(bubble);
+
+        function onTap(e) {
+            if (!state.playing) return;
+            
+            // Raycast
+            const mouse = new THREE.Vector2();
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            
+            const intersects = raycaster.intersectObjects(bubbles);
+            if (intersects.length > 0) {
+                const hit = intersects[0].object;
+                popBubble(hit);
+            }
         }
-      });
 
-      poppingBubbles.forEach((bubble) => {
-        bubble.userData.popProgress += 0.08;
-        const scale = Math.max(0, 1 - bubble.userData.popProgress);
-        bubble.scale.setScalar(scale);
-        bubble.material.opacity = Math.max(0, 0.55 * scale);
-        if (bubble.userData.popProgress >= 1) {
-          poppingBubbles.delete(bubble);
-          spawnBubble(bubble);
+        function popBubble(bubble) {
+            const char = bubble.userData.label;
+            
+            // 1. Play Sound
+            audio.pop.currentTime = 0;
+            audio.pop.play();
+
+            // 2. Logic Check
+            let correct = false;
+
+            // CHECK WORD LOGIC (Strict Mode)
+            const neededLetter = state.targetWord[state.wordIndex];
+            
+            if (char === neededLetter) {
+                // Correct Letter!
+                correct = true;
+                state.wordIndex++;
+                
+                // Visual Feedback
+                document.getElementById('target-word').style.color = "#00ff00"; // Flash Green
+                setTimeout(() => document.getElementById('target-word').style.color = "white", 200);
+
+                // Word Complete?
+                if (state.wordIndex >= state.targetWord.length) {
+                    triggerWin("WORD");
+                }
+            } else if (state.numbersUnlocked && char === state.targetNum) {
+                // Correct Number!
+                correct = true;
+                triggerWin("NUMBER");
+            } else {
+                // WRONG HIT -> PENALTY
+                // Reset Word Progress
+                if (state.wordIndex > 0) {
+                    state.wordIndex = 0; // Hard Reset
+                    const wordEl = document.getElementById('target-word');
+                    wordEl.classList.add('shake');
+                    wordEl.style.color = "red";
+                    setTimeout(() => {
+                        wordEl.classList.remove('shake');
+                        wordEl.style.color = "white";
+                    }, 500);
+                }
+            }
+
+            // 3. Reset Bubble Position
+            spawnBubble(bubble); 
+            
+            // 4. Update UI
+            updateHUD();
         }
-      });
 
-      const hoverOffset = Math.sin(time * 0.003) * 0.08;
-      busGroup.position.y = -0.1 + hoverOffset;
-      wandTip.scale.setScalar(1 + Math.sin(time * 0.01) * 0.1);
-      const cameraTarget = new THREE.Vector3(0, 1.6 + hoverOffset, 5.5);
-      camera.position.lerp(cameraTarget, 0.06);
-      camera.lookAt(0, 1, 0);
+        function triggerWin(type) {
+            // STOP BG, PLAY THEME
+            audio.bg.pause();
+            audio.theme.currentTime = 0;
+            audio.theme.play();
+            
+            // Resume BG after theme (assuming 10s clip, adjust as needed)
+            setTimeout(() => {
+                if(state.playing) audio.bg.play();
+            }, 8000);
 
-      uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
-      sparkles.forEach((sparkle) => {
-        sparkle.x += sparkle.vx;
-        sparkle.y += sparkle.vy;
-        sparkle.life -= 0.03;
-      });
-      for (let i = sparkles.length - 1; i >= 0; i--) {
-        if (sparkles[i].life <= 0) {
-          sparkles.splice(i, 1);
+            // Confetti / Particles (Simple JS Burst)
+            createParticles();
+
+            if (type === "WORD") {
+                state.levelLetters++;
+                document.getElementById('bar-left').style.height = (state.levelLetters * 10) + "%";
+                
+                // FIRST WIN UNLOCK
+                if (state.targetWord === "EVA" && !state.numbersUnlocked) {
+                    state.numbersUnlocked = true;
+                    document.getElementById('star-right').style.display = 'flex';
+                    document.getElementById('panel-right').style.opacity = "1";
+                    document.getElementById('target-word').innerText = "UNLOCKED!";
+                }
+
+                // Pick New Word
+                state.wordIndex = 0;
+                setTimeout(() => {
+                    const next = state.wordList[Math.floor(Math.random() * state.wordList.length)];
+                    state.targetWord = next;
+                    updateHUD();
+                }, 1500);
+            } 
+            else if (type === "NUMBER") {
+                state.levelNumbers++;
+                document.getElementById('bar-right').style.height = (state.levelNumbers * 10) + "%";
+                
+                // Pick New Number
+                setTimeout(() => {
+                    const next = state.numberList[Math.floor(Math.random() * state.numberList.length)];
+                    state.targetNum = next;
+                    updateHUD();
+                }, 1000);
+            }
         }
-      }
-      sparkles.forEach((sparkle) => {
-        uiCtx.beginPath();
-        uiCtx.fillStyle = `rgba(255, 215, 130, ${sparkle.life})`;
-        uiCtx.arc(sparkle.x, sparkle.y, 4, 0, Math.PI * 2);
-        uiCtx.fill();
-      });
 
-      hudCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
-      const now = performance.now();
-      const wandWorld = new THREE.Vector3();
-      wandTip.getWorldPosition(wandWorld);
-      const wandScreen = wandWorld.clone().project(camera);
-      const wandScreenX = (wandScreen.x * 0.5 + 0.5) * window.innerWidth;
-      const wandScreenY = (-wandScreen.y * 0.5 + 0.5) * window.innerHeight;
-      for (let i = magicBursts.length - 1; i >= 0; i--) {
-        const burst = magicBursts[i];
-        const age = (now - burst.start) / 450;
-        if (age > 1) {
-          magicBursts.splice(i, 1);
-          continue;
+        function createParticles() {
+            // Add DOM particles for simple "Confetti"
+            for(let i=0; i<30; i++) {
+                const p = document.createElement('div');
+                p.style.position = 'fixed';
+                p.style.left = '50%';
+                p.style.top = '50%';
+                p.style.width = '10px';
+                p.style.height = '10px';
+                p.style.backgroundColor = ['#ff0', '#f0f', '#0ff'][Math.floor(Math.random()*3)];
+                p.style.borderRadius = '50%';
+                p.style.transition = 'transform 1s ease-out, opacity 1s';
+                document.body.appendChild(p);
+                
+                setTimeout(() => {
+                    const x = (Math.random() - 0.5) * window.innerWidth;
+                    const y = (Math.random() - 0.5) * window.innerHeight;
+                    p.style.transform = `translate(${x}px, ${y}px) scale(0)`;
+                    p.style.opacity = 0;
+                }, 10);
+                setTimeout(() => p.remove(), 1000);
+            }
         }
-        const alpha = 1 - age;
-        hudCtx.strokeStyle = `rgba(255, 221, 122, ${alpha})`;
-        hudCtx.lineWidth = 4;
-        hudCtx.beginPath();
-        hudCtx.moveTo(wandScreenX, wandScreenY);
-        hudCtx.lineTo(burst.x, burst.y);
-        hudCtx.stroke();
-        hudCtx.fillStyle = `rgba(255, 182, 233, ${alpha})`;
-        hudCtx.beginPath();
-        hudCtx.arc(burst.x, burst.y, 12 + age * 8, 0, Math.PI * 2);
-        hudCtx.fill();
-      }
-      hudCtx.beginPath();
-      hudCtx.strokeStyle = "rgba(255,255,255,0.7)";
-      hudCtx.lineWidth = 3;
-      hudCtx.arc(window.innerWidth / 2, window.innerHeight / 2, 20, 0, Math.PI * 2);
-      hudCtx.stroke();
 
-      renderer.render(scene, camera);
-    }
+        function updateHUD() {
+            // Update Center Stars
+            const wLabel = document.getElementById('target-word');
+            // Show letters collected so far? Or just the target?
+            // "EVA" -> User has "E" -> Show "E _ _" ? 
+            // Let's stick to showing the GOAL, but highlight progress color?
+            // Simple approach: Show Goal.
+            wLabel.innerText = state.targetWord;
+            
+            // If strict mode, maybe underline the next letter needed?
+            // Advanced: wLabel.innerHTML = `<span style="color:#0f0">${state.targetWord.substring(0, state.wordIndex)}</span>${state.targetWord.substring(state.wordIndex)}`;
+             
+             let html = "";
+             for(let i=0; i<state.targetWord.length; i++) {
+                 if (i < state.wordIndex) html += `<span style="color:#ffff00; text-shadow:0 0 10px gold">${state.targetWord[i]}</span>`; // Found
+                 else if (i === state.wordIndex) html += `<span style="color:#fff; text-decoration:underline">${state.targetWord[i]}</span>`; // Needed
+                 else html += `<span style="opacity:0.5">${state.targetWord[i]}</span>`; // Future
+             }
+             wLabel.innerHTML = html;
 
-    function init() {
-      canvas = document.getElementById("webgl");
-      uiCanvas = document.getElementById("ui");
-      hudCanvas = document.getElementById("hud");
-      letterPopup = document.getElementById("letter-popup");
-      splashScreen = document.getElementById("splash-screen");
-      startButton = document.getElementById("start-button");
-
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-      renderer.setPixelRatio(window.devicePixelRatio || 1);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-
-      scene = new THREE.Scene();
-      scene.fog = new THREE.Fog(0xf7e9ff, 6, 32);
-
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-      camera.position.set(0, 1.5, 5);
-
-      const ambient = new THREE.AmbientLight(0xffffff, 0.9);
-      scene.add(ambient);
-      const mainLight = new THREE.DirectionalLight(0xffffff, 0.7);
-      mainLight.position.set(4, 6, 5);
-      scene.add(mainLight);
-
-      uiCtx = uiCanvas.getContext("2d");
-      hudCtx = hudCanvas.getContext("2d");
-
-      const skyGlow = new THREE.Mesh(
-        new THREE.SphereGeometry(30, 32, 32),
-        new THREE.MeshBasicMaterial({ color: 0xe6f7ff, side: THREE.BackSide })
-      );
-      scene.add(skyGlow);
-
-      busGroup = new THREE.Group();
-      scene.add(busGroup);
-
-      const evaTexture = new THREE.TextureLoader().load("eva.png");
-      const evaSprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: evaTexture, transparent: true })
-      );
-      evaSprite.scale.set(0.5, 0.5, 0.5);
-      evaSprite.position.set(0, 1.1, 0);
-      busGroup.add(evaSprite);
-
-      // Create the magic point (invisible source for sparkles)
-      wandTip = new THREE.Mesh(
-        new THREE.SphereGeometry(0.05, 16, 16),
-        new THREE.MeshBasicMaterial({ color: 0xffffff })
-      );
-      wandTip.position.set(0.4, 1.1, 0);
-      busGroup.add(wandTip);
-
-      busGroup.position.set(0, -0.2, 3.5);
-
-      const cloudCanvas = document.createElement("canvas");
-      cloudCanvas.width = 256;
-      cloudCanvas.height = 128;
-      const cloudCtx = cloudCanvas.getContext("2d");
-      cloudCtx.fillStyle = "rgba(255, 255, 255, 0.9)";
-      cloudCtx.beginPath();
-      cloudCtx.ellipse(70, 70, 55, 35, 0, 0, Math.PI * 2);
-      cloudCtx.ellipse(120, 55, 65, 45, 0, 0, Math.PI * 2);
-      cloudCtx.ellipse(170, 70, 50, 32, 0, 0, Math.PI * 2);
-      cloudCtx.fill();
-      const cloudTexture = new THREE.CanvasTexture(cloudCanvas);
-
-      clouds.length = 0;
-      const cloudCount = 18;
-      for (let i = 0; i < cloudCount; i++) {
-        const cloud = new THREE.Sprite(
-          new THREE.SpriteMaterial({ map: cloudTexture, transparent: true, opacity: 0.85 })
-        );
-        cloud.scale.set(6 + Math.random() * 6, 3 + Math.random() * 3, 1);
-        cloud.position.set(
-          (Math.random() - 0.5) * 20,
-          2 + Math.random() * 6,
-          -10 - Math.random() * 60
-        );
-        cloud.userData = { speedFactor: 0.4 + Math.random() * 0.6 };
-        clouds.push(cloud);
-        scene.add(cloud);
-      }
-
-      const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-      const numbers = Array.from({ length: 20 }, (_, i) => String(i + 1));
-      bubbleLabels = [...letters, ...numbers];
-
-      bubbleGeometry = new THREE.SphereGeometry(0.45, 20, 20);
-      bubbleMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.55,
-        roughness: 0.2,
-        metalness: 0.1
-      });
-
-      bubbles.length = 0;
-      poppingBubbles.clear();
-      const bubbleCount = 18;
-      for (let i = 0; i < bubbleCount; i++) {
-        spawnBubble();
-      }
-
-      loopAudio = new Audio("loop.mp3");
-      loopAudio.loop = true;
-      evaThemeAudio = new Audio("eva_theme.mp3");
-      popAudio = new Audio("pop.mp3");
-      magicAudio = new Audio("magic.mp3");
-
-      isGameStarted = false;
-      lastTime = 0;
-      sequenceIndex = 0;
-      easterEggTriggered = false;
-
-      startButton.addEventListener("click", startGame);
-      startButton.addEventListener("pointerdown", startGame);
-      splashScreen.addEventListener("pointerdown", (event) => {
-        if (event.target === startButton) {
-          return;
+            document.getElementById('target-num').innerText = state.targetNum;
         }
-        startGame();
-      });
-      window.addEventListener("keydown", (event) => {
-        if (!isGameStarted && (event.key === "Enter" || event.key === " ")) {
-          event.preventDefault();
-          startGame();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now() * 0.001;
+
+            if (state.playing) {
+                // Move Bubbles
+                bubbles.forEach(b => {
+                    b.position.y += b.userData.speed;
+                    b.position.x += Math.sin(time + b.userData.wobble) * 0.002;
+                    
+                    // Respawn if too high
+                    if (b.position.y > 6) {
+                        spawnBubble(b);
+                    }
+                });
+
+                // Float Bus
+                if (busGroup) {
+                    busGroup.position.y = Math.sin(time * 1.5) * 0.1;
+                    busGroup.rotation.z = Math.sin(time * 0.5) * 0.02;
+                }
+            }
+
+            renderer.render(scene, camera);
         }
-      });
-      window.addEventListener("pointerdown", handleTap);
-      window.addEventListener("resize", resize);
-      resize();
-      animate(0);
-    }
 
-    function startGame() {
-      if (isGameStarted) {
-        return;
-      }
-      isGameStarted = true;
-      splashScreen.style.display = "none";
-      enterFullscreen();
-      loopAudio.currentTime = 0;
-      loopAudio.play().catch(() => {});
-    }
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-    init();
-  </script>
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
 </body>
 </html>
