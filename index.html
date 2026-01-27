@@ -220,6 +220,10 @@
         let bubbleLabels = "E V A I N S M O P 1 2 3 4 5".split(" "); // Initial pool
 
         function init() {
+            if (!window.THREE) {
+                console.error('Three.js failed to load.');
+                return;
+            }
             // Scene
             const canvas = document.querySelector('#webgl');
             renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -502,25 +506,26 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            if (!state.playing) return;
 
             const time = performance.now() * 0.001;
 
-            // Move Bubbles
-            bubbles.forEach(b => {
-                b.position.y += b.userData.speed;
-                b.position.x += Math.sin(time + b.userData.wobble) * 0.002;
-                
-                // Respawn if too high
-                if (b.position.y > 6) {
-                    spawnBubble(b);
-                }
-            });
+            if (state.playing) {
+                // Move Bubbles
+                bubbles.forEach(b => {
+                    b.position.y += b.userData.speed;
+                    b.position.x += Math.sin(time + b.userData.wobble) * 0.002;
+                    
+                    // Respawn if too high
+                    if (b.position.y > 6) {
+                        spawnBubble(b);
+                    }
+                });
 
-            // Float Bus
-            if (busGroup) {
-                busGroup.position.y = Math.sin(time * 1.5) * 0.1;
-                busGroup.rotation.z = Math.sin(time * 0.5) * 0.02;
+                // Float Bus
+                if (busGroup) {
+                    busGroup.position.y = Math.sin(time * 1.5) * 0.1;
+                    busGroup.rotation.z = Math.sin(time * 0.5) * 0.02;
+                }
             }
 
             renderer.render(scene, camera);
@@ -532,7 +537,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        init();
+        window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
