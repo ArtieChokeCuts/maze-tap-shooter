@@ -102,7 +102,7 @@
 
         .star-shape {
             position: absolute;
-            font-size: 240px;
+            font-size: 110px;
             filter: drop-shadow(0 4px 10px rgba(0,0,0,0.2));
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -110,7 +110,7 @@
         .star-content {
             position: relative;
             z-index: 2;
-            font-size: 2.5rem;
+            font-size: 1.8rem;
             font-weight: 900;
             color: white;
             text-shadow: 2px 2px 0px rgba(0,0,0,0.3);
@@ -119,10 +119,10 @@
         }
 
         /* Left Star (Yellow/Gold) */
-        #star-left .star-shape { color: #ffc107; -webkit-text-stroke: 6px #b8860b; }
+        #star-left .star-shape { color: #ffc107; -webkit-text-stroke: 4px #b8860b; }
         
         /* Right Star (Orange) */
-        #star-right .star-shape { color: #fd7e14; -webkit-text-stroke: 6px #c2410c; }
+        #star-right .star-shape { color: #fd7e14; -webkit-text-stroke: 4px #c2410c; }
         #star-right { display: none; /* Hidden until Eva is found */ }
 
         /* --- SPLASH SCREEN --- */
@@ -396,9 +396,6 @@
                     const wordEl = document.getElementById('target-word');
                     wordEl.classList.add('shake');
                     wordEl.style.color = "red";
-                    if (navigator.vibrate) {
-                        navigator.vibrate(200);
-                    }
                     setTimeout(() => {
                         wordEl.classList.remove('shake');
                         wordEl.style.color = "white";
@@ -414,30 +411,18 @@
         }
 
         function triggerWin(type) {
-            // Smoothly fade out the loop
-            const fadeOut = setInterval(() => {
-                if (audio.bg.volume > 0.05) {
-                    audio.bg.volume = Math.max(0, audio.bg.volume - 0.05);
-                } else {
-                    audio.bg.pause();
-                    clearInterval(fadeOut);
-                }
-            }, 50);
-
-            // Play the Anthem
+            // STOP BG, PLAY THEME
+            audio.bg.pause();
             audio.theme.currentTime = 0;
             audio.theme.play();
+            
+            // Resume BG after theme (assuming 10s clip, adjust as needed)
+            setTimeout(() => {
+                if(state.playing) audio.bg.play();
+            }, 8000);
 
             // Confetti / Particles (Simple JS Burst)
             createParticles();
-
-            // Resume BG after theme (assuming 10s clip, adjust as needed)
-            setTimeout(() => {
-                if (state.playing) {
-                    audio.bg.volume = 0.4;
-                    audio.bg.play();
-                }
-            }, 8000);
 
             if (type === "WORD") {
                 state.levelLetters++;
