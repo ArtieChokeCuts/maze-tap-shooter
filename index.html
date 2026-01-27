@@ -210,6 +210,10 @@
             margin-top: 6px;
         }
 
+        #letter-bank-list {
+            margin-top: 6px;
+        }
+
         #number-bank-list .bank-word {
             background: rgba(255, 255, 255, 0.8);
             color: #198754;
@@ -253,6 +257,7 @@
             <div id="word-bank">
                 <span class="bank-title">Word Bank · <span id="level-indicator">Level 1</span></span>
                 <div id="word-bank-list"></div>
+                <div id="letter-bank-list"></div>
                 <div id="number-bank-list"></div>
             </div>
             <div id="helper">Tap the bubbles in order!</div>
@@ -643,6 +648,10 @@
                 const isActive = word === state.targetWord;
                 return `<span class="bank-word ${isActive ? "active" : ""}">${word}</span>`;
             }).join("");
+
+            const letterBank = document.getElementById('letter-bank-list');
+            const letterLabel = state.letterPool.length ? state.letterPool : ["E", "V", "A"];
+            letterBank.innerHTML = letterLabel.map((letter) => `<span class="bank-word">${letter}</span>`).join("");
 
             const numberBank = document.getElementById('number-bank-list');
             numberBank.innerHTML = state.numberPool.map((num) => `<span class="bank-word">${num}</span>`).join("");
