@@ -14,6 +14,31 @@
             touch-action: none; 
         }
 
+        /* Neon HUD Dashboard */
+        #hud-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 100;
+            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .neon-panel {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid;
+            box-shadow: 0 0 15px currentColor;
+            padding: 15px 18px;
+            border-radius: 12px;
+            min-width: 120px;
+            text-align: center;
+            font-weight: 800;
+        }
+
+        #math-panel { border-color: #00f3ff; color: #00f3ff; } /* Blue Neon */
+        #word-panel { border-color: #ff00ff; color: #ff00ff; } /* Pink Neon */
+
         /* --- UI LAYER (The HUD) --- */
         #ui-layer {
             position: absolute;
@@ -219,6 +244,11 @@
             color: #198754;
         }
 
+        #letter-bank-list .bank-word {
+            background: rgba(255, 255, 255, 0.85);
+            color: #6b4fc7;
+        }
+
         #helper { text-align: center; color: #666; font-size: 0.9rem; }
     </style>
 </head>
@@ -226,6 +256,17 @@
 
     <div id="splash-screen">
         <button id="start-btn">PLAY!</button>
+    </div>
+
+    <div id="hud-overlay">
+        <div id="math-panel" class="neon-panel">
+            <div>Math Score</div>
+            <div id="math-score">0</div>
+        </div>
+        <div id="word-panel" class="neon-panel">
+            <div>Word Score</div>
+            <div id="word-score">0</div>
+        </div>
     </div>
 
     <div id="top-center">
@@ -286,6 +327,9 @@
             letterPool: []
         };
 
+        const recentLetters = [];
+        const recentNumbers = [];
+
         const levelConfigs = [
             { id: 1, goal: 3, bubbleCount: 14, speedZ: 0.028, speedY: 0.002, wobble: 0.004 },
             { id: 2, goal: 4, bubbleCount: 18, speedZ: 0.038, speedY: 0.004, wobble: 0.005 },
@@ -343,14 +387,17 @@
             busGroup = new THREE.Group();
             scene.add(busGroup);
 
-            // Eva Sprite
-            const loader = new THREE.TextureLoader();
-            loader.load('eva.png', (tex) => {
-                const mat = new THREE.SpriteMaterial({ map: tex });
-                const sprite = new THREE.Sprite(mat);
-                sprite.scale.set(1.5, 1.5, 1);
-                busGroup.add(sprite);
-            });
+            // Neon Bus Sprite (asset-free)
+            const busCanvas = document.createElement('canvas');
+            busCanvas.width = 256;
+            busCanvas.height = 128;
+            const busCtx = busCanvas.getContext('2d');
+            drawNeonBus(busCtx);
+            const busTexture = new THREE.CanvasTexture(busCanvas);
+            const busMaterial = new THREE.SpriteMaterial({ map: busTexture, transparent: true });
+            const busSprite = new THREE.Sprite(busMaterial);
+            busSprite.scale.set(2.2, 1.1, 1);
+            busGroup.add(busSprite);
 
             // Wand Tip (Invisible target for sparkles)
             wandTip = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({ visible: false }));
@@ -470,6 +517,7 @@
                 // Number Logic: Add up to the target
                 state.numberSum += numberValue;
                 correct = true;
+                trackSequence(recentNumbers, numberValue, true);
 
                 if (state.numberSum > Number(state.targetNum)) {
                     state.numberSum = 0;
@@ -491,6 +539,7 @@
                     // Correct Letter!
                     correct = true;
                     state.wordIndex++;
+                    trackSequence(recentLetters, char, false);
                     
                     // Visual Feedback
                     document.getElementById('target-word').style.color = "#00ff00"; // Flash Green
@@ -657,6 +706,13 @@
             numberBank.innerHTML = state.numberPool.map((num) => `<span class="bank-word">${num}</span>`).join("");
         }
 
+        function updateNeonHUD() {
+            const mathScore = document.getElementById('math-score');
+            const wordScore = document.getElementById('word-score');
+            if (mathScore) mathScore.innerText = state.levelNumbers;
+            if (wordScore) wordScore.innerText = state.levelLetters;
+        }
+
         function updateHelperText() {
             const levelEl = document.getElementById('level-indicator');
             if (levelEl) {
@@ -688,6 +744,58 @@
                 word.split("").forEach((letter) => letters.add(letter));
             });
             return Array.from(letters);
+        }
+
+        function drawNeonBus(ctx) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.fillStyle = "rgba(0,0,0,0)";
+            ctx.strokeStyle = "#ff00ff";
+            ctx.lineWidth = 6;
+            ctx.shadowColor = "#ff00ff";
+            ctx.shadowBlur = 15;
+            ctx.strokeRect(20, 30, 200, 70);
+
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = "#00f3ff";
+            ctx.strokeRect(40, 45, 50, 25);
+            ctx.strokeRect(100, 45, 50, 25);
+
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(60, 110, 12, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(160, 110, 12, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        function trackSequence(sequence, value, isNumber) {
+            sequence.push(value);
+            if (sequence.length > 3) sequence.shift();
+            if (sequence.length < 3) return;
+
+            const isRun = sequence.every((val, idx) => {
+                if (idx === 0) return true;
+                if (isNumber) {
+                    return val === sequence[idx - 1] + 1;
+                }
+                return val.charCodeAt(0) === sequence[idx - 1].charCodeAt(0) + 1;
+            });
+
+            if (isRun) {
+                triggerJackpotEffect();
+            }
+        }
+
+        function triggerJackpotEffect() {
+            createParticles();
+            const helper = document.getElementById('helper');
+            helper.classList.add('pop-anim');
+            helper.innerText = "JACKPOT!";
+            setTimeout(() => {
+                helper.classList.remove('pop-anim');
+                updateHelperText();
+            }, 1200);
         }
 
         function getLevelConfig() {
