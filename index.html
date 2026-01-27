@@ -206,6 +206,15 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
+        #number-bank-list {
+            margin-top: 6px;
+        }
+
+        #number-bank-list .bank-word {
+            background: rgba(255, 255, 255, 0.8);
+            color: #198754;
+        }
+
         #helper { text-align: center; color: #666; font-size: 0.9rem; }
     </style>
 </head>
@@ -244,6 +253,7 @@
             <div id="word-bank">
                 <span class="bank-title">Word Bank · <span id="level-indicator">Level 1</span></span>
                 <div id="word-bank-list"></div>
+                <div id="number-bank-list"></div>
             </div>
             <div id="helper">Tap the bubbles in order!</div>
         </div>
@@ -267,6 +277,8 @@
             numbersUnlocked: false,
             wordList: ["IAN", "ASA", "MAMA", "POP", "ART", "CAT", "DOG", "BUS"], // Pool after EVA
             numberList: ["5", "10", "15", "20", "25", "50", "100"],
+            numberPool: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            letterPool: []
             numberPool: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
         };
 
@@ -299,6 +311,7 @@
                 console.error('Three.js failed to load.');
                 return;
             }
+            state.letterPool = buildLetterPool();
             // Scene
             const canvas = document.querySelector('#webgl');
             renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -370,8 +383,8 @@
                  // 40% chance for number
                 char = state.numberPool[Math.floor(Math.random() * state.numberPool.length)];
             } else {
-                // Random junk
-                const pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789";
+                // Random letter from the word pool
+                const pool = state.letterPool.length ? state.letterPool : "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
                 char = pool[Math.floor(Math.random() * pool.length)];
             }
 
@@ -604,6 +617,7 @@
             document.getElementById('target-num').innerText = state.targetNum;
             updateWordBank();
             updateHelperText();
+            updateStarProgress();
         }
 
         function updateWordBank() {
@@ -613,6 +627,9 @@
                 const isActive = word === state.targetWord;
                 return `<span class="bank-word ${isActive ? "active" : ""}">${word}</span>`;
             }).join("");
+
+            const numberBank = document.getElementById('number-bank-list');
+            numberBank.innerHTML = state.numberPool.map((num) => `<span class="bank-word">${num}</span>`).join("");
         }
 
         function updateHelperText() {
@@ -623,6 +640,29 @@
             const config = getLevelConfig();
             const helper = document.getElementById('helper');
             helper.innerText = `Tap the bubbles in order! ${state.levelProgress}/${config.goal} wins to level up.`;
+        }
+
+        function updateStarProgress() {
+            const wordProgress = document.getElementById('word-progress');
+            const built = state.targetWord.slice(0, state.wordIndex);
+            const remaining = "_".repeat(Math.max(state.targetWord.length - state.wordIndex, 0));
+            wordProgress.innerText = `${built}${remaining}`;
+
+            const numProgress = document.getElementById('number-progress');
+            if (state.numbersUnlocked) {
+                numProgress.innerText = `Sum: ${state.numberSum} / ${state.targetNum}`;
+            } else {
+                numProgress.innerText = "Locked";
+            }
+        }
+
+        function buildLetterPool() {
+            const words = ["EVA", ...state.wordList];
+            const letters = new Set();
+            words.forEach((word) => {
+                word.split("").forEach((letter) => letters.add(letter));
+            });
+            return Array.from(letters);
         }
 
         function getLevelConfig() {
