@@ -92,8 +92,8 @@
 
         .star-box {
             position: relative;
-            width: 110px;
-            height: 110px;
+            width: 150px;
+            height: 150px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -102,7 +102,7 @@
 
         .star-shape {
             position: absolute;
-            font-size: 110px;
+            font-size: 240px;
             filter: drop-shadow(0 4px 10px rgba(0,0,0,0.2));
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -110,7 +110,7 @@
         .star-content {
             position: relative;
             z-index: 2;
-            font-size: 1.8rem;
+            font-size: 2.5rem;
             font-weight: 900;
             color: white;
             text-shadow: 2px 2px 0px rgba(0,0,0,0.3);
@@ -118,11 +118,24 @@
             line-height: 1;
         }
 
+        .star-sub {
+            position: absolute;
+            bottom: -18px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #5c3d00;
+            background: rgba(255, 255, 255, 0.75);
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 6px 16px rgba(31, 38, 135, 0.1);
+        }
+
         /* Left Star (Yellow/Gold) */
-        #star-left .star-shape { color: #ffc107; -webkit-text-stroke: 4px #b8860b; }
+        #star-left .star-shape { color: #ffc107; -webkit-text-stroke: 6px #b8860b; }
         
         /* Right Star (Orange) */
-        #star-right .star-shape { color: #fd7e14; -webkit-text-stroke: 4px #c2410c; }
+        #star-right .star-shape { color: #fd7e14; -webkit-text-stroke: 6px #c2410c; }
         #star-right { display: none; /* Hidden until Eva is found */ }
 
         /* --- SPLASH SCREEN --- */
@@ -150,7 +163,59 @@
         @keyframes shake { 10%, 90% { transform: translate3d(-2px, 0, 0); } 20%, 80% { transform: translate3d(4px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-6px, 0, 0); } 40%, 60% { transform: translate3d(6px, 0, 0); } }
 
         canvas { display: block; position: absolute; inset: 0; }
-        #helper { position: absolute; bottom: 10px; width: 100%; text-align: center; color: #666; font-size: 0.9rem; }
+        #bottom-ui {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #word-bank {
+            padding: 10px 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            font-weight: 800;
+            color: #6b4fc7;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(31, 38, 135, 0.1);
+        }
+
+        #word-bank .bank-title {
+            display: block;
+            font-size: 0.9rem;
+            color: #d63384;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        #word-bank .bank-word {
+            display: inline-block;
+            margin: 0 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        #word-bank .bank-word.active {
+            background: #ffe44d;
+            color: #5c3d00;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        #number-bank-list {
+            margin-top: 6px;
+        }
+
+        #number-bank-list .bank-word {
+            background: rgba(255, 255, 255, 0.8);
+            color: #198754;
+        }
+
+        #helper { text-align: center; color: #666; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -163,10 +228,12 @@
         <div id="star-left" class="star-box">
             <div class="star-shape">★</div>
             <div class="star-content" id="target-word">EVA</div>
+            <div class="star-sub" id="word-progress"></div>
         </div>
         <div id="star-right" class="star-box">
             <div class="star-shape">★</div>
             <div class="star-content" id="target-num">25</div>
+            <div class="star-sub" id="number-progress"></div>
         </div>
     </div>
 
@@ -182,7 +249,14 @@
                 <div class="bar-container"><div id="bar-right" class="liquid"></div></div>
             </div>
         </div>
-        <div id="helper">Tap the bubbles in order!</div>
+        <div id="bottom-ui">
+            <div id="word-bank">
+                <span class="bank-title">Word Bank · <span id="level-indicator">Level 1</span></span>
+                <div id="word-bank-list"></div>
+                <div id="number-bank-list"></div>
+            </div>
+            <div id="helper">Tap the bubbles in order!</div>
+        </div>
     </div>
 
     <canvas id="webgl"></canvas>
@@ -192,15 +266,26 @@
         // --- GAME STATE ---
         const state = {
             playing: false,
+            level: 1,
+            levelProgress: 0,
             levelLetters: 0,
             levelNumbers: 0,
             targetWord: "EVA", // First Word ALWAYS
             targetNum: "25",
             wordIndex: 0, // Current letter progress (0 = needs first letter)
+            numberSum: 0,
             numbersUnlocked: false,
             wordList: ["IAN", "ASA", "MAMA", "POP", "ART", "CAT", "DOG", "BUS"], // Pool after EVA
-            numberList: ["5", "10", "15", "20", "25", "50", "100"]
+            numberList: ["5", "10", "15", "20", "25", "50", "100"],
+            numberPool: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            letterPool: []
         };
+
+        const levelConfigs = [
+            { id: 1, goal: 3, bubbleCount: 14, speedZ: 0.028, speedY: 0.002, wobble: 0.004 },
+            { id: 2, goal: 4, bubbleCount: 18, speedZ: 0.038, speedY: 0.004, wobble: 0.005 },
+            { id: 3, goal: 5, bubbleCount: 22, speedZ: 0.048, speedY: 0.006, wobble: 0.006 }
+        ];
 
         // --- AUDIO ---
         const audio = {
@@ -209,14 +294,16 @@
             pop: new Audio('pop.mp3'),
             magic: new Audio('magic.mp3')
         };
+        const bgBaseVolume = 0.4;
         audio.bg.loop = true;
-        audio.bg.volume = 0.4;
+        audio.bg.volume = bgBaseVolume;
         audio.theme.volume = 1.0; 
 
         // --- THREE.JS SETUP ---
         let scene, camera, renderer, busGroup, wandTip;
         const bubbles = [];
         const particles = [];
+        const clouds = [];
         let bubbleLabels = "E V A I N S M O P 1 2 3 4 5".split(" "); // Initial pool
 
         function init() {
@@ -224,6 +311,7 @@
                 console.error('Three.js failed to load.');
                 return;
             }
+            state.letterPool = buildLetterPool();
             // Scene
             const canvas = document.querySelector('#webgl');
             renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -265,7 +353,8 @@
             busGroup.add(wandTip);
 
             // Initial Bubbles
-            for(let i=0; i<15; i++) spawnBubble();
+            applyLevelConfig();
+            createClouds();
 
             // Events
             window.addEventListener('resize', onResize);
@@ -290,12 +379,12 @@
             if (Math.random() < 0.4) {
                 // 40% chance to spawn exactly what we need
                 char = state.targetWord[state.wordIndex];
-            } else if (state.numbersUnlocked && Math.random() < 0.3) {
-                 // 30% chance for number
-                char = state.targetNum;
+            } else if (state.numbersUnlocked && Math.random() < 0.4) {
+                 // 40% chance for number
+                char = state.numberPool[Math.floor(Math.random() * state.numberPool.length)];
             } else {
-                // Random junk
-                const pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789";
+                // Random letter from the word pool
+                const pool = state.letterPool.length ? state.letterPool : "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
                 char = pool[Math.floor(Math.random() * pool.length)];
             }
 
@@ -314,17 +403,20 @@
             sprite.scale.set(0.6, 0.6, 1);
             bubble.add(sprite);
             
-            // Random Position
-            const x = (Math.random() - 0.5) * 6;
-            const y = -4 - Math.random() * 5; // Start below screen
-            const z = (Math.random() - 0.5) * 2;
+            // Random Position (float toward Eva)
+            const x = (Math.random() - 0.5) * 7;
+            const y = (Math.random() - 0.5) * 4;
+            const z = -6 - Math.random() * 4;
             bubble.position.set(x, y, z);
             
+            const config = getLevelConfig();
             bubble.userData = { 
                 label: char, 
                 sprite: sprite, 
-                speed: 0.02 + Math.random() * 0.03,
-                wobble: Math.random() * Math.PI 
+                speedZ: config.speedZ + Math.random() * 0.02,
+                speedY: config.speedY + Math.random() * 0.01,
+                wobble: Math.random() * Math.PI,
+                wobbleSpeed: 0.6 + Math.random() * 0.6
             };
 
             if (!recycleBubble) {
@@ -367,39 +459,58 @@
 
             // 2. Logic Check
             let correct = false;
+            const numberValue = parseInt(char, 10);
 
-            // CHECK WORD LOGIC (Strict Mode)
-            const neededLetter = state.targetWord[state.wordIndex];
-            
-            if (char === neededLetter) {
-                // Correct Letter!
+            if (state.numbersUnlocked && !Number.isNaN(numberValue)) {
+                // Number Logic: Add up to the target
+                state.numberSum += numberValue;
                 correct = true;
-                state.wordIndex++;
-                
-                // Visual Feedback
-                document.getElementById('target-word').style.color = "#00ff00"; // Flash Green
-                setTimeout(() => document.getElementById('target-word').style.color = "white", 200);
 
-                // Word Complete?
-                if (state.wordIndex >= state.targetWord.length) {
-                    triggerWin("WORD");
-                }
-            } else if (state.numbersUnlocked && char === state.targetNum) {
-                // Correct Number!
-                correct = true;
-                triggerWin("NUMBER");
-            } else {
-                // WRONG HIT -> PENALTY
-                // Reset Word Progress
-                if (state.wordIndex > 0) {
-                    state.wordIndex = 0; // Hard Reset
-                    const wordEl = document.getElementById('target-word');
-                    wordEl.classList.add('shake');
-                    wordEl.style.color = "red";
+                if (state.numberSum > Number(state.targetNum)) {
+                    state.numberSum = 0;
+                    const numEl = document.getElementById('target-num');
+                    numEl.classList.add('shake');
+                    numEl.style.color = "red";
                     setTimeout(() => {
-                        wordEl.classList.remove('shake');
-                        wordEl.style.color = "white";
+                        numEl.classList.remove('shake');
+                        numEl.style.color = "white";
                     }, 500);
+                } else if (state.numberSum === Number(state.targetNum)) {
+                    triggerWin("NUMBER");
+                }
+            } else {
+                // CHECK WORD LOGIC (Strict Mode)
+                const neededLetter = state.targetWord[state.wordIndex];
+                
+                if (char === neededLetter) {
+                    // Correct Letter!
+                    correct = true;
+                    state.wordIndex++;
+                    
+                    // Visual Feedback
+                    document.getElementById('target-word').style.color = "#00ff00"; // Flash Green
+                    setTimeout(() => document.getElementById('target-word').style.color = "white", 200);
+
+                    // Word Complete?
+                    if (state.wordIndex >= state.targetWord.length) {
+                        triggerWin("WORD");
+                    }
+                } else {
+                    // WRONG HIT -> PENALTY
+                    // Reset Word Progress
+                    if (state.wordIndex > 0) {
+                        state.wordIndex = 0; // Hard Reset
+                        const wordEl = document.getElementById('target-word');
+                        wordEl.classList.add('shake');
+                        wordEl.style.color = "red";
+                        if (navigator.vibrate) {
+                            navigator.vibrate(200);
+                        }
+                        setTimeout(() => {
+                            wordEl.classList.remove('shake');
+                            wordEl.style.color = "white";
+                        }, 500);
+                    }
                 }
             }
 
@@ -411,18 +522,29 @@
         }
 
         function triggerWin(type) {
-            // STOP BG, PLAY THEME
-            audio.bg.pause();
+            // Smoothly fade out the loop
+            const fadeOut = setInterval(() => {
+                if (audio.bg.volume > 0.05) audio.bg.volume -= 0.05;
+                else {
+                    audio.bg.pause();
+                    clearInterval(fadeOut);
+                }
+            }, 50);
+
+            // Play the Anthem
             audio.theme.currentTime = 0;
             audio.theme.play();
             
-            // Resume BG after theme (assuming 10s clip, adjust as needed)
-            setTimeout(() => {
-                if(state.playing) audio.bg.play();
-            }, 8000);
-
             // Confetti / Particles (Simple JS Burst)
             createParticles();
+
+            // Resume BG after theme
+            setTimeout(() => {
+                if (state.playing) {
+                    audio.bg.volume = bgBaseVolume;
+                    audio.bg.play();
+                }
+            }, 8000);
 
             if (type === "WORD") {
                 state.levelLetters++;
@@ -431,6 +553,7 @@
                 // FIRST WIN UNLOCK
                 if (state.targetWord === "EVA" && !state.numbersUnlocked) {
                     state.numbersUnlocked = true;
+                    state.numberSum = 0;
                     document.getElementById('star-right').style.display = 'flex';
                     document.getElementById('panel-right').style.opacity = "1";
                     document.getElementById('target-word').innerText = "UNLOCKED!";
@@ -447,6 +570,7 @@
             else if (type === "NUMBER") {
                 state.levelNumbers++;
                 document.getElementById('bar-right').style.height = (state.levelNumbers * 10) + "%";
+                state.numberSum = 0;
                 
                 // Pick New Number
                 setTimeout(() => {
@@ -455,6 +579,9 @@
                     updateHUD();
                 }, 1000);
             }
+
+            state.levelProgress++;
+            checkLevelUp();
         }
 
         function createParticles() {
@@ -502,6 +629,113 @@
              wLabel.innerHTML = html;
 
             document.getElementById('target-num').innerText = state.targetNum;
+            updateWordBank();
+            updateHelperText();
+            updateStarProgress();
+        }
+
+        function updateWordBank() {
+            const listEl = document.getElementById('word-bank-list');
+            const bank = ["EVA", ...state.wordList];
+            listEl.innerHTML = bank.map((word) => {
+                const isActive = word === state.targetWord;
+                return `<span class="bank-word ${isActive ? "active" : ""}">${word}</span>`;
+            }).join("");
+
+            const numberBank = document.getElementById('number-bank-list');
+            numberBank.innerHTML = state.numberPool.map((num) => `<span class="bank-word">${num}</span>`).join("");
+        }
+
+        function updateHelperText() {
+            const levelEl = document.getElementById('level-indicator');
+            if (levelEl) {
+                levelEl.innerText = `Level ${state.level}`;
+            }
+            const config = getLevelConfig();
+            const helper = document.getElementById('helper');
+            helper.innerText = `Tap the bubbles in order! ${state.levelProgress}/${config.goal} wins to level up.`;
+        }
+
+        function updateStarProgress() {
+            const wordProgress = document.getElementById('word-progress');
+            const built = state.targetWord.slice(0, state.wordIndex);
+            const remaining = "_".repeat(Math.max(state.targetWord.length - state.wordIndex, 0));
+            wordProgress.innerText = `${built}${remaining}`;
+
+            const numProgress = document.getElementById('number-progress');
+            if (state.numbersUnlocked) {
+                numProgress.innerText = `Sum: ${state.numberSum} / ${state.targetNum}`;
+            } else {
+                numProgress.innerText = "Locked";
+            }
+        }
+
+        function buildLetterPool() {
+            const words = ["EVA", ...state.wordList];
+            const letters = new Set();
+            words.forEach((word) => {
+                word.split("").forEach((letter) => letters.add(letter));
+            });
+            return Array.from(letters);
+        }
+
+        function getLevelConfig() {
+            return levelConfigs[Math.min(state.level - 1, levelConfigs.length - 1)];
+        }
+
+        function applyLevelConfig() {
+            const config = getLevelConfig();
+            ensureBubbleCount(config.bubbleCount);
+            updateHUD();
+        }
+
+        function ensureBubbleCount(targetCount) {
+            while (bubbles.length < targetCount) {
+                spawnBubble();
+            }
+        }
+
+        function checkLevelUp() {
+            const config = getLevelConfig();
+            if (state.levelProgress < config.goal) {
+                return;
+            }
+            if (state.level < levelConfigs.length) {
+                state.level += 1;
+                state.levelProgress = 0;
+                applyLevelConfig();
+            }
+        }
+
+        function createCloudTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.beginPath();
+            ctx.ellipse(70, 70, 50, 30, 0, 0, Math.PI * 2);
+            ctx.ellipse(120, 55, 60, 40, 0, 0, Math.PI * 2);
+            ctx.ellipse(170, 70, 55, 35, 0, 0, Math.PI * 2);
+            ctx.fill();
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createClouds() {
+            const texture = createCloudTexture();
+            for (let i = 0; i < 6; i++) {
+                const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.9 });
+                const cloud = new THREE.Sprite(material);
+                cloud.scale.set(3.5 + Math.random() * 2, 1.8 + Math.random(), 1);
+                cloud.position.set((Math.random() - 0.5) * 12, 1 + Math.random() * 4, -8 - Math.random() * 4);
+                cloud.userData = {
+                    speedX: 0.002 + Math.random() * 0.004
+                };
+                scene.add(cloud);
+                clouds.push(cloud);
+            }
         }
 
         function animate() {
@@ -512,12 +746,21 @@
             if (state.playing) {
                 // Move Bubbles
                 bubbles.forEach(b => {
-                    b.position.y += b.userData.speed;
-                    b.position.x += Math.sin(time + b.userData.wobble) * 0.002;
+                    b.position.z += b.userData.speedZ;
+                    b.position.y += b.userData.speedY;
+                    b.position.x += Math.sin(time * b.userData.wobbleSpeed + b.userData.wobble) * 0.004;
                     
-                    // Respawn if too high
-                    if (b.position.y > 6) {
+                    // Respawn if too close or too high
+                    if (b.position.z > 1.2 || b.position.y > 6) {
                         spawnBubble(b);
+                    }
+                });
+
+                // Move Clouds
+                clouds.forEach(c => {
+                    c.position.x += c.userData.speedX;
+                    if (c.position.x > 8) {
+                        c.position.x = -8;
                     }
                 });
 
