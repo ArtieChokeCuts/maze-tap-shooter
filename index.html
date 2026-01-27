@@ -118,6 +118,19 @@
             line-height: 1;
         }
 
+        .star-sub {
+            position: absolute;
+            bottom: -18px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #5c3d00;
+            background: rgba(255, 255, 255, 0.75);
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 6px 16px rgba(31, 38, 135, 0.1);
+        }
+
         /* Left Star (Yellow/Gold) */
         #star-left .star-shape { color: #ffc107; -webkit-text-stroke: 4px #b8860b; }
         
@@ -206,10 +219,12 @@
         <div id="star-left" class="star-box">
             <div class="star-shape">★</div>
             <div class="star-content" id="target-word">EVA</div>
+            <div class="star-sub" id="word-progress"></div>
         </div>
         <div id="star-right" class="star-box">
             <div class="star-shape">★</div>
             <div class="star-content" id="target-num">25</div>
+            <div class="star-sub" id="number-progress"></div>
         </div>
     </div>
 
@@ -248,9 +263,11 @@
             targetWord: "EVA", // First Word ALWAYS
             targetNum: "25",
             wordIndex: 0, // Current letter progress (0 = needs first letter)
+            numberSum: 0,
             numbersUnlocked: false,
             wordList: ["IAN", "ASA", "MAMA", "POP", "ART", "CAT", "DOG", "BUS"], // Pool after EVA
-            numberList: ["5", "10", "15", "20", "25", "50", "100"]
+            numberList: ["5", "10", "15", "20", "25", "50", "100"],
+            numberPool: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
         };
 
         const levelConfigs = [
@@ -349,9 +366,9 @@
             if (Math.random() < 0.4) {
                 // 40% chance to spawn exactly what we need
                 char = state.targetWord[state.wordIndex];
-            } else if (state.numbersUnlocked && Math.random() < 0.3) {
-                 // 30% chance for number
-                char = state.targetNum;
+            } else if (state.numbersUnlocked && Math.random() < 0.4) {
+                 // 40% chance for number
+                char = state.numberPool[Math.floor(Math.random() * state.numberPool.length)];
             } else {
                 // Random junk
                 const pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789";
@@ -429,39 +446,55 @@
 
             // 2. Logic Check
             let correct = false;
+            const numberValue = parseInt(char, 10);
 
-            // CHECK WORD LOGIC (Strict Mode)
-            const neededLetter = state.targetWord[state.wordIndex];
-            
-            if (char === neededLetter) {
-                // Correct Letter!
+            if (state.numbersUnlocked && !Number.isNaN(numberValue)) {
+                // Number Logic: Add up to the target
+                state.numberSum += numberValue;
                 correct = true;
-                state.wordIndex++;
-                
-                // Visual Feedback
-                document.getElementById('target-word').style.color = "#00ff00"; // Flash Green
-                setTimeout(() => document.getElementById('target-word').style.color = "white", 200);
 
-                // Word Complete?
-                if (state.wordIndex >= state.targetWord.length) {
-                    triggerWin("WORD");
-                }
-            } else if (state.numbersUnlocked && char === state.targetNum) {
-                // Correct Number!
-                correct = true;
-                triggerWin("NUMBER");
-            } else {
-                // WRONG HIT -> PENALTY
-                // Reset Word Progress
-                if (state.wordIndex > 0) {
-                    state.wordIndex = 0; // Hard Reset
-                    const wordEl = document.getElementById('target-word');
-                    wordEl.classList.add('shake');
-                    wordEl.style.color = "red";
+                if (state.numberSum > Number(state.targetNum)) {
+                    state.numberSum = 0;
+                    const numEl = document.getElementById('target-num');
+                    numEl.classList.add('shake');
+                    numEl.style.color = "red";
                     setTimeout(() => {
-                        wordEl.classList.remove('shake');
-                        wordEl.style.color = "white";
+                        numEl.classList.remove('shake');
+                        numEl.style.color = "white";
                     }, 500);
+                } else if (state.numberSum === Number(state.targetNum)) {
+                    triggerWin("NUMBER");
+                }
+            } else {
+                // CHECK WORD LOGIC (Strict Mode)
+                const neededLetter = state.targetWord[state.wordIndex];
+                
+                if (char === neededLetter) {
+                    // Correct Letter!
+                    correct = true;
+                    state.wordIndex++;
+                    
+                    // Visual Feedback
+                    document.getElementById('target-word').style.color = "#00ff00"; // Flash Green
+                    setTimeout(() => document.getElementById('target-word').style.color = "white", 200);
+
+                    // Word Complete?
+                    if (state.wordIndex >= state.targetWord.length) {
+                        triggerWin("WORD");
+                    }
+                } else {
+                    // WRONG HIT -> PENALTY
+                    // Reset Word Progress
+                    if (state.wordIndex > 0) {
+                        state.wordIndex = 0; // Hard Reset
+                        const wordEl = document.getElementById('target-word');
+                        wordEl.classList.add('shake');
+                        wordEl.style.color = "red";
+                        setTimeout(() => {
+                            wordEl.classList.remove('shake');
+                            wordEl.style.color = "white";
+                        }, 500);
+                    }
                 }
             }
 
@@ -493,6 +526,7 @@
                 // FIRST WIN UNLOCK
                 if (state.targetWord === "EVA" && !state.numbersUnlocked) {
                     state.numbersUnlocked = true;
+                    state.numberSum = 0;
                     document.getElementById('star-right').style.display = 'flex';
                     document.getElementById('panel-right').style.opacity = "1";
                     document.getElementById('target-word').innerText = "UNLOCKED!";
@@ -509,6 +543,7 @@
             else if (type === "NUMBER") {
                 state.levelNumbers++;
                 document.getElementById('bar-right').style.height = (state.levelNumbers * 10) + "%";
+                state.numberSum = 0;
                 
                 // Pick New Number
                 setTimeout(() => {
