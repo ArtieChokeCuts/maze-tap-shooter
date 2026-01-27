@@ -604,7 +604,6 @@
             document.getElementById('target-num').innerText = state.targetNum;
             updateWordBank();
             updateHelperText();
-            updateStarProgress();
         }
 
         function updateWordBank() {
@@ -624,20 +623,6 @@
             const config = getLevelConfig();
             const helper = document.getElementById('helper');
             helper.innerText = `Tap the bubbles in order! ${state.levelProgress}/${config.goal} wins to level up.`;
-        }
-
-        function updateStarProgress() {
-            const wordProgress = document.getElementById('word-progress');
-            const built = state.targetWord.slice(0, state.wordIndex);
-            const remaining = "_".repeat(Math.max(state.targetWord.length - state.wordIndex, 0));
-            wordProgress.innerText = `${built}${remaining}`;
-
-            const numProgress = document.getElementById('number-progress');
-            if (state.numbersUnlocked) {
-                numProgress.innerText = `Sum: ${state.numberSum}`;
-            } else {
-                numProgress.innerText = "Locked";
-            }
         }
 
         function getLevelConfig() {
