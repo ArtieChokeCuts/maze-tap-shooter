@@ -9,7 +9,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
         body { 
             overflow: hidden; 
-            background: #fdf2f8; /* Soft Pink Base */
+            background: #87ceeb; /* Open Sky */
             font-family: "Comic Sans MS", "Trebuchet MS", sans-serif; 
             touch-action: none; 
         }
@@ -182,6 +182,15 @@
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        @keyframes sparkle {
+            0% { transform: translate(0, 0) scale(0.2); opacity: 1; }
+            100% { transform: translate(var(--spark-x), var(--spark-y)) scale(1); opacity: 0; }
+        }
+        @keyframes popupFloat {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            20% { transform: translate(-50%, -60%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -120%) scale(0.6); opacity: 0; }
+        }
         
         .pop-anim { animation: popIn 0.4s forwards; }
         .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
@@ -250,12 +259,37 @@
         }
 
         #helper { text-align: center; color: #666; font-size: 0.9rem; }
+
+        #magic-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 30;
+        }
+
+        .sparkle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fff 0%, #ffe44d 60%, transparent 100%);
+            animation: sparkle 0.7s ease-out forwards;
+        }
+
+        .magic-popup {
+            position: absolute;
+            font-size: 4rem;
+            font-weight: 900;
+            color: #ff6fae;
+            text-shadow: 0 0 12px rgba(255, 255, 255, 0.9), 0 4px 12px rgba(0,0,0,0.25);
+            animation: popupFloat 0.9s ease-out forwards;
+        }
     </style>
 </head>
 <body>
 
     <div id="splash-screen">
-        <button id="start-btn">PLAY!</button>
+        <button id="start-btn">START GAME</button>
     </div>
 
     <div id="hud-overlay">
@@ -301,11 +335,12 @@
                 <div id="letter-bank-list"></div>
                 <div id="number-bank-list"></div>
             </div>
-            <div id="helper">Tap the bubbles in order!</div>
+            <div id="helper">Tap a bubble to pop it with your magic wand!</div>
         </div>
     </div>
 
     <canvas id="webgl"></canvas>
+    <div id="magic-layer"></div>
 
     <script src="three.min.js"></script>
     <script>
@@ -323,7 +358,7 @@
             numbersUnlocked: false,
             wordList: ["IAN", "ASA", "MAMA", "POP", "ART", "CAT", "DOG", "BUS"], // Pool after EVA
             numberList: ["5", "10", "15", "20", "25", "50", "100"],
-            numberPool: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            numberPool: Array.from({ length: 20 }, (_, idx) => String(idx + 1)),
             letterPool: []
         };
 
@@ -354,6 +389,7 @@
         const particles = [];
         const clouds = [];
         let bubbleLabels = "E V A I N S M O P 1 2 3 4 5".split(" "); // Initial pool
+        let lastTapPosition = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
         function init() {
             if (!window.THREE) {
@@ -370,7 +406,7 @@
             scene = new THREE.Scene();
             // Gradient Sky Mesh
             const skyGeo = new THREE.SphereGeometry(40, 32, 32);
-            const skyMat = new THREE.MeshBasicMaterial({ color: 0xffe6f2, side: THREE.BackSide }); 
+            const skyMat = new THREE.MeshBasicMaterial({ color: 0x87ceeb, side: THREE.BackSide }); 
             scene.add(new THREE.Mesh(skyGeo, skyMat));
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
@@ -428,14 +464,14 @@
             // Pick a label
             // Hint Logic: If we need "E", spawn more "E"s
             let char;
-            if (Math.random() < 0.4) {
-                // 40% chance to spawn exactly what we need
+            if (Math.random() < 0.35) {
+                // Spawn what we need for the word
                 char = state.targetWord[state.wordIndex];
-            } else if (state.numbersUnlocked && Math.random() < 0.4) {
-                 // 40% chance for number
+            } else if (Math.random() < 0.3) {
+                // Spawn a number
                 char = state.numberPool[Math.floor(Math.random() * state.numberPool.length)];
             } else {
-                // Random letter from the word pool
+                // Random letter from the alphabet pool
                 const pool = state.letterPool.length ? state.letterPool : ["E", "V", "A"];
                 char = pool[Math.floor(Math.random() * pool.length)];
             }
@@ -480,12 +516,16 @@
         function startGame() {
             document.getElementById('splash-screen').style.display = 'none';
             state.playing = true;
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
             audio.bg.play().catch(e => console.log("Audio needs interaction"));
             updateHUD();
         }
 
         function onTap(e) {
             if (!state.playing) return;
+            lastTapPosition = { x: e.clientX, y: e.clientY };
             
             // Raycast
             const mouse = new THREE.Vector2();
@@ -498,16 +538,19 @@
             const intersects = raycaster.intersectObjects(bubbles);
             if (intersects.length > 0) {
                 const hit = intersects[0].object;
-                popBubble(hit);
+                popBubble(hit, lastTapPosition);
             }
         }
 
-        function popBubble(bubble) {
+        function popBubble(bubble, tapPosition) {
             const char = bubble.userData.label;
             
             // 1. Play Sound
             audio.pop.currentTime = 0;
             audio.pop.play();
+            audio.magic.currentTime = 0;
+            audio.magic.play();
+            createMagicBurst(tapPosition.x, tapPosition.y, char);
 
             // 2. Logic Check
             let correct = false;
@@ -532,6 +575,11 @@
                     triggerWin("NUMBER");
                 }
             } else {
+                if (!state.numbersUnlocked && !Number.isNaN(numberValue)) {
+                    spawnBubble(bubble);
+                    updateHUD();
+                    return;
+                }
                 // CHECK WORD LOGIC (Strict Mode)
                 const neededLetter = state.targetWord[state.wordIndex];
                 
@@ -576,18 +624,21 @@
         }
 
         function triggerWin(type) {
-            // Smoothly fade out the loop before the anthem
-            const fadeOut = setInterval(() => {
-                if (audio.bg.volume > 0.05) {
-                    audio.bg.volume -= 0.05;
-                    return;
-                }
-                audio.bg.volume = 0;
-                audio.bg.pause();
-                clearInterval(fadeOut);
-                audio.theme.currentTime = 0;
-                audio.theme.play();
-            }, 50);
+            const isEvaWin = type === "WORD" && state.targetWord === "EVA";
+            if (isEvaWin) {
+                // Smoothly fade out the loop before the anthem
+                const fadeOut = setInterval(() => {
+                    if (audio.bg.volume > 0.05) {
+                        audio.bg.volume -= 0.05;
+                        return;
+                    }
+                    audio.bg.volume = 0;
+                    audio.bg.pause();
+                    clearInterval(fadeOut);
+                    audio.theme.currentTime = 0;
+                    audio.theme.play();
+                }, 50);
+            }
             
             // Confetti / Particles (Simple JS Burst)
             createParticles();
@@ -595,12 +646,14 @@
             state.wordIndex = 0;
 
             // Resume BG after theme
-            setTimeout(() => {
-                if (state.playing) {
-                    audio.bg.volume = bgBaseVolume;
-                    audio.bg.play();
-                }
-            }, 8000);
+            if (isEvaWin) {
+                setTimeout(() => {
+                    if (state.playing) {
+                        audio.bg.volume = bgBaseVolume;
+                        audio.bg.play();
+                    }
+                }, 8000);
+            }
 
             if (type === "WORD") {
                 state.levelLetters++;
@@ -720,7 +773,7 @@
             }
             const config = getLevelConfig();
             const helper = document.getElementById('helper');
-            helper.innerText = `Tap the bubbles in order! ${state.levelProgress}/${config.goal} wins to level up.`;
+            helper.innerText = `Tap a bubble to pop it with your magic wand! ${state.levelProgress}/${config.goal} wins to level up.`;
         }
 
         function updateStarProgress() {
@@ -738,12 +791,7 @@
         }
 
         function buildLetterPool() {
-            const words = ["EVA", ...state.wordList];
-            const letters = new Set();
-            words.forEach((word) => {
-                word.split("").forEach((letter) => letters.add(letter));
-            });
-            return Array.from(letters);
+            return "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
         }
 
         function drawNeonBus(ctx) {
@@ -796,6 +844,32 @@
                 helper.classList.remove('pop-anim');
                 updateHelperText();
             }, 1200);
+        }
+
+        function createMagicBurst(x, y, char) {
+            const layer = document.getElementById('magic-layer');
+            if (!layer) return;
+
+            const popup = document.createElement('div');
+            popup.className = 'magic-popup';
+            popup.style.left = `${x}px`;
+            popup.style.top = `${y}px`;
+            popup.style.color = ['#ff6fae', '#6b4fc7', '#20c997'][Math.floor(Math.random() * 3)];
+            popup.textContent = char;
+            layer.appendChild(popup);
+
+            for (let i = 0; i < 14; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle';
+                sparkle.style.left = `${x}px`;
+                sparkle.style.top = `${y}px`;
+                sparkle.style.background = `radial-gradient(circle, #fff 0%, ${['#ffe44d', '#ff6fae', '#20c997'][Math.floor(Math.random() * 3)]} 60%, transparent 100%)`;
+                sparkle.style.setProperty('--spark-x', `${(Math.random() - 0.5) * 160}px`);
+                sparkle.style.setProperty('--spark-y', `${(Math.random() - 0.5) * 160}px`);
+                layer.appendChild(sparkle);
+                setTimeout(() => sparkle.remove(), 800);
+            }
+            setTimeout(() => popup.remove(), 900);
         }
 
         function getLevelConfig() {
