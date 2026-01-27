@@ -259,37 +259,23 @@
         }
 
         #helper { text-align: center; color: #666; font-size: 0.9rem; }
-
-        #magic-layer {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 30;
-        }
-
-        .sparkle {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: radial-gradient(circle, #fff 0%, #ffe44d 60%, transparent 100%);
-            animation: sparkle 0.7s ease-out forwards;
-        }
-
-        .magic-popup {
-            position: absolute;
-            font-size: 4rem;
-            font-weight: 900;
-            color: #ff6fae;
-            text-shadow: 0 0 12px rgba(255, 255, 255, 0.9), 0 4px 12px rgba(0,0,0,0.25);
-            animation: popupFloat 0.9s ease-out forwards;
-        }
     </style>
 </head>
 <body>
 
     <div id="splash-screen">
         <button id="start-btn">START GAME</button>
+    </div>
+
+    <div id="hud-overlay">
+        <div id="math-panel" class="neon-panel">
+            <div>Math Score</div>
+            <div id="math-score">0</div>
+        </div>
+        <div id="word-panel" class="neon-panel">
+            <div>Word Score</div>
+            <div id="word-score">0</div>
+        </div>
     </div>
 
     <div id="hud-overlay">
@@ -335,7 +321,7 @@
                 <div id="letter-bank-list"></div>
                 <div id="number-bank-list"></div>
             </div>
-            <div id="helper">Tap a bubble to pop it with your magic wand!</div>
+            <div id="helper">Tap the bubbles in order!</div>
         </div>
     </div>
 
@@ -358,7 +344,7 @@
             numbersUnlocked: false,
             wordList: ["IAN", "ASA", "MAMA", "POP", "ART", "CAT", "DOG", "BUS"], // Pool after EVA
             numberList: ["5", "10", "15", "20", "25", "50", "100"],
-            numberPool: Array.from({ length: 20 }, (_, idx) => String(idx + 1)),
+            numberPool: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
             letterPool: []
         };
 
@@ -467,11 +453,11 @@
             if (Math.random() < 0.35) {
                 // Spawn what we need for the word
                 char = state.targetWord[state.wordIndex];
-            } else if (Math.random() < 0.3) {
-                // Spawn a number
+            } else if (state.numbersUnlocked && Math.random() < 0.4) {
+                 // 40% chance for number
                 char = state.numberPool[Math.floor(Math.random() * state.numberPool.length)];
             } else {
-                // Random letter from the alphabet pool
+                // Random letter from the word pool
                 const pool = state.letterPool.length ? state.letterPool : ["E", "V", "A"];
                 char = pool[Math.floor(Math.random() * pool.length)];
             }
@@ -575,11 +561,6 @@
                     triggerWin("NUMBER");
                 }
             } else {
-                if (!state.numbersUnlocked && !Number.isNaN(numberValue)) {
-                    spawnBubble(bubble);
-                    updateHUD();
-                    return;
-                }
                 // CHECK WORD LOGIC (Strict Mode)
                 const neededLetter = state.targetWord[state.wordIndex];
                 
@@ -624,21 +605,18 @@
         }
 
         function triggerWin(type) {
-            const isEvaWin = type === "WORD" && state.targetWord === "EVA";
-            if (isEvaWin) {
-                // Smoothly fade out the loop before the anthem
-                const fadeOut = setInterval(() => {
-                    if (audio.bg.volume > 0.05) {
-                        audio.bg.volume -= 0.05;
-                        return;
-                    }
-                    audio.bg.volume = 0;
-                    audio.bg.pause();
-                    clearInterval(fadeOut);
-                    audio.theme.currentTime = 0;
-                    audio.theme.play();
-                }, 50);
-            }
+            // Smoothly fade out the loop before the anthem
+            const fadeOut = setInterval(() => {
+                if (audio.bg.volume > 0.05) {
+                    audio.bg.volume -= 0.05;
+                    return;
+                }
+                audio.bg.volume = 0;
+                audio.bg.pause();
+                clearInterval(fadeOut);
+                audio.theme.currentTime = 0;
+                audio.theme.play();
+            }, 50);
             
             // Confetti / Particles (Simple JS Burst)
             createParticles();
@@ -646,14 +624,12 @@
             state.wordIndex = 0;
 
             // Resume BG after theme
-            if (isEvaWin) {
-                setTimeout(() => {
-                    if (state.playing) {
-                        audio.bg.volume = bgBaseVolume;
-                        audio.bg.play();
-                    }
-                }, 8000);
-            }
+            setTimeout(() => {
+                if (state.playing) {
+                    audio.bg.volume = bgBaseVolume;
+                    audio.bg.play();
+                }
+            }, 8000);
 
             if (type === "WORD") {
                 state.levelLetters++;
@@ -741,6 +717,7 @@
             updateWordBank();
             updateHelperText();
             updateStarProgress();
+            updateNeonHUD();
         }
 
         function updateWordBank() {
@@ -773,7 +750,7 @@
             }
             const config = getLevelConfig();
             const helper = document.getElementById('helper');
-            helper.innerText = `Tap a bubble to pop it with your magic wand! ${state.levelProgress}/${config.goal} wins to level up.`;
+            helper.innerText = `Tap the bubbles in order! ${state.levelProgress}/${config.goal} wins to level up.`;
         }
 
         function updateStarProgress() {
@@ -791,30 +768,12 @@
         }
 
         function buildLetterPool() {
-            return "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-        }
-
-        function drawNeonBus(ctx) {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.fillStyle = "rgba(0,0,0,0)";
-            ctx.strokeStyle = "#ff00ff";
-            ctx.lineWidth = 6;
-            ctx.shadowColor = "#ff00ff";
-            ctx.shadowBlur = 15;
-            ctx.strokeRect(20, 30, 200, 70);
-
-            ctx.shadowBlur = 8;
-            ctx.strokeStyle = "#00f3ff";
-            ctx.strokeRect(40, 45, 50, 25);
-            ctx.strokeRect(100, 45, 50, 25);
-
-            ctx.shadowBlur = 12;
-            ctx.beginPath();
-            ctx.arc(60, 110, 12, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(160, 110, 12, 0, Math.PI * 2);
-            ctx.stroke();
+            const words = ["EVA", ...state.wordList];
+            const letters = new Set();
+            words.forEach((word) => {
+                word.split("").forEach((letter) => letters.add(letter));
+            });
+            return Array.from(letters);
         }
 
         function trackSequence(sequence, value, isNumber) {
@@ -844,32 +803,6 @@
                 helper.classList.remove('pop-anim');
                 updateHelperText();
             }, 1200);
-        }
-
-        function createMagicBurst(x, y, char) {
-            const layer = document.getElementById('magic-layer');
-            if (!layer) return;
-
-            const popup = document.createElement('div');
-            popup.className = 'magic-popup';
-            popup.style.left = `${x}px`;
-            popup.style.top = `${y}px`;
-            popup.style.color = ['#ff6fae', '#6b4fc7', '#20c997'][Math.floor(Math.random() * 3)];
-            popup.textContent = char;
-            layer.appendChild(popup);
-
-            for (let i = 0; i < 14; i++) {
-                const sparkle = document.createElement('div');
-                sparkle.className = 'sparkle';
-                sparkle.style.left = `${x}px`;
-                sparkle.style.top = `${y}px`;
-                sparkle.style.background = `radial-gradient(circle, #fff 0%, ${['#ffe44d', '#ff6fae', '#20c997'][Math.floor(Math.random() * 3)]} 60%, transparent 100%)`;
-                sparkle.style.setProperty('--spark-x', `${(Math.random() - 0.5) * 160}px`);
-                sparkle.style.setProperty('--spark-y', `${(Math.random() - 0.5) * 160}px`);
-                layer.appendChild(sparkle);
-                setTimeout(() => sparkle.remove(), 800);
-            }
-            setTimeout(() => popup.remove(), 900);
         }
 
         function getLevelConfig() {
