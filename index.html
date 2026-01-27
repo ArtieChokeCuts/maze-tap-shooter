@@ -19,7 +19,7 @@
             position: absolute;
             inset: 0;
             pointer-events: none;
-            z-index: 10;
+            z-index: 20;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -87,7 +87,7 @@
             justify-content: center;
             gap: 20px;
             pointer-events: none;
-            z-index: 11;
+            z-index: 21;
         }
 
         .star-box {
@@ -162,7 +162,7 @@
         .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
         @keyframes shake { 10%, 90% { transform: translate3d(-2px, 0, 0); } 20%, 80% { transform: translate3d(4px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-6px, 0, 0); } 40%, 60% { transform: translate3d(6px, 0, 0); } }
 
-        canvas { display: block; position: absolute; inset: 0; z-index: 1; }
+        canvas { display: block; position: absolute; inset: 0; z-index: 5; }
         #bottom-ui {
             position: absolute;
             bottom: 10px;
@@ -384,7 +384,7 @@
                 char = state.numberPool[Math.floor(Math.random() * state.numberPool.length)];
             } else {
                 // Random letter from the word pool
-                const pool = state.letterPool.length ? state.letterPool : "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+                const pool = state.letterPool.length ? state.letterPool : ["E", "V", "A"];
                 char = pool[Math.floor(Math.random() * pool.length)];
             }
 
@@ -539,14 +539,6 @@
             createParticles();
             state.numberSum = 0;
             state.wordIndex = 0;
-
-            // Resume BG after theme
-            setTimeout(() => {
-                if (state.playing) {
-                    audio.bg.volume = bgBaseVolume;
-                    audio.bg.play();
-                }
-            }, 8000);
 
             // Resume BG after theme
             setTimeout(() => {
@@ -765,7 +757,7 @@
                     b.position.x += Math.sin(time * b.userData.wobbleSpeed + b.userData.wobble) * 0.004;
                     
                     // Respawn if too close or too high
-                    if (b.position.z > 1.2 || b.position.y > 6) {
+                    if (b.position.z > 5.5 || b.position.y > 6) {
                         spawnBubble(b);
                     }
                 });
