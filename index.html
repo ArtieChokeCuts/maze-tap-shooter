@@ -9,7 +9,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
         body { 
             overflow: hidden; 
-            background: #fdf2f8; /* Soft Pink Base */
+            background: #87ceeb; /* Open Sky */
             font-family: "Comic Sans MS", "Trebuchet MS", sans-serif; 
             touch-action: none; 
         }
@@ -18,7 +18,7 @@
         #hud-overlay {
             position: absolute;
             inset: 0;
-            z-index: 19;
+            z-index: 100;
             pointer-events: none;
             display: flex;
             justify-content: space-between;
@@ -182,6 +182,15 @@
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        @keyframes sparkle {
+            0% { transform: translate(0, 0) scale(0.2); opacity: 1; }
+            100% { transform: translate(var(--spark-x), var(--spark-y)) scale(1); opacity: 0; }
+        }
+        @keyframes popupFloat {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            20% { transform: translate(-50%, -60%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -120%) scale(0.6); opacity: 0; }
+        }
         
         .pop-anim { animation: popIn 0.4s forwards; }
         .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
@@ -255,7 +264,40 @@
 <body>
 
     <div id="splash-screen">
-        <button id="start-btn">PLAY!</button>
+        <button id="start-btn">START GAME</button>
+    </div>
+
+    <div id="hud-overlay">
+        <div id="math-panel" class="neon-panel">
+            <div>Math Score</div>
+            <div id="math-score">0</div>
+        </div>
+        <div id="word-panel" class="neon-panel">
+            <div>Word Score</div>
+            <div id="word-score">0</div>
+        </div>
+    </div>
+
+    <div id="hud-overlay">
+        <div id="math-panel" class="neon-panel">
+            <div>Math Score</div>
+            <div id="math-score">0</div>
+        </div>
+        <div id="word-panel" class="neon-panel">
+            <div>Word Score</div>
+            <div id="word-score">0</div>
+        </div>
+    </div>
+
+    <div id="hud-overlay">
+        <div id="math-panel" class="neon-panel">
+            <div>Math Score</div>
+            <div id="math-score">0</div>
+        </div>
+        <div id="word-panel" class="neon-panel">
+            <div>Word Score</div>
+            <div id="word-score">0</div>
+        </div>
     </div>
 
     <div id="hud-overlay">
@@ -306,6 +348,7 @@
     </div>
 
     <canvas id="webgl"></canvas>
+    <div id="magic-layer"></div>
 
     <script src="three.min.js"></script>
     <script>
@@ -354,6 +397,7 @@
         const particles = [];
         const clouds = [];
         let bubbleLabels = "E V A I N S M O P 1 2 3 4 5".split(" "); // Initial pool
+        let lastTapPosition = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
         function init() {
             if (!window.THREE) {
@@ -370,7 +414,7 @@
             scene = new THREE.Scene();
             // Gradient Sky Mesh
             const skyGeo = new THREE.SphereGeometry(40, 32, 32);
-            const skyMat = new THREE.MeshBasicMaterial({ color: 0xffe6f2, side: THREE.BackSide }); 
+            const skyMat = new THREE.MeshBasicMaterial({ color: 0x87ceeb, side: THREE.BackSide }); 
             scene.add(new THREE.Mesh(skyGeo, skyMat));
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
@@ -387,14 +431,17 @@
             busGroup = new THREE.Group();
             scene.add(busGroup);
 
-            // Eva Sprite
-            const loader = new THREE.TextureLoader();
-            loader.load('eva.png', (tex) => {
-                const mat = new THREE.SpriteMaterial({ map: tex });
-                const sprite = new THREE.Sprite(mat);
-                sprite.scale.set(1.5, 1.5, 1);
-                busGroup.add(sprite);
-            });
+            // Neon Bus Sprite (asset-free)
+            const busCanvas = document.createElement('canvas');
+            busCanvas.width = 256;
+            busCanvas.height = 128;
+            const busCtx = busCanvas.getContext('2d');
+            drawNeonBus(busCtx);
+            const busTexture = new THREE.CanvasTexture(busCanvas);
+            const busMaterial = new THREE.SpriteMaterial({ map: busTexture, transparent: true });
+            const busSprite = new THREE.Sprite(busMaterial);
+            busSprite.scale.set(2.2, 1.1, 1);
+            busGroup.add(busSprite);
 
             // Wand Tip (Invisible target for sparkles)
             wandTip = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({ visible: false }));
@@ -427,8 +474,8 @@
             // Pick a label
             // Hint Logic: If we need "E", spawn more "E"s
             let char;
-            if (Math.random() < 0.4) {
-                // 40% chance to spawn exactly what we need
+            if (Math.random() < 0.35) {
+                // Spawn what we need for the word
                 char = state.targetWord[state.wordIndex];
             } else if (state.numbersUnlocked && Math.random() < 0.4) {
                  // 40% chance for number
@@ -480,12 +527,16 @@
             if (state.playing) return;
             document.getElementById('splash-screen').style.display = 'none';
             state.playing = true;
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
             audio.bg.play().catch(e => console.log("Audio needs interaction"));
             updateHUD();
         }
 
         function onTap(e) {
             if (!state.playing) return;
+            lastTapPosition = { x: e.clientX, y: e.clientY };
             
             // Raycast
             const mouse = new THREE.Vector2();
@@ -498,16 +549,19 @@
             const intersects = raycaster.intersectObjects(bubbles);
             if (intersects.length > 0) {
                 const hit = intersects[0].object;
-                popBubble(hit);
+                popBubble(hit, lastTapPosition);
             }
         }
 
-        function popBubble(bubble) {
+        function popBubble(bubble, tapPosition) {
             const char = bubble.userData.label;
             
             // 1. Play Sound
             audio.pop.currentTime = 0;
             audio.pop.play();
+            audio.magic.currentTime = 0;
+            audio.magic.play();
+            createMagicBurst(tapPosition.x, tapPosition.y, char);
 
             // 2. Logic Check
             let correct = false;
