@@ -300,6 +300,17 @@
         </div>
     </div>
 
+    <div id="hud-overlay">
+        <div id="math-panel" class="neon-panel">
+            <div>Math Score</div>
+            <div id="math-score">0</div>
+        </div>
+        <div id="word-panel" class="neon-panel">
+            <div>Word Score</div>
+            <div id="word-score">0</div>
+        </div>
+    </div>
+
     <div id="top-center">
         <div id="star-left" class="star-box">
             <div class="star-shape">★</div>
@@ -444,7 +455,9 @@
             // Events
             window.addEventListener('resize', onResize);
             window.addEventListener('pointerdown', onTap);
+            const splash = document.getElementById('splash-screen');
             document.getElementById('start-btn').addEventListener('click', startGame);
+            splash.addEventListener('pointerdown', startGame);
             
             animate();
         }
@@ -511,6 +524,7 @@
         }
 
         function startGame() {
+            if (state.playing) return;
             document.getElementById('splash-screen').style.display = 'none';
             state.playing = true;
             if (document.documentElement.requestFullscreen) {
