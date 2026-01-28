@@ -44,7 +44,7 @@
             position: absolute;
             inset: 0;
             pointer-events: none;
-            z-index: 20;
+            z-index: 100;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -322,6 +322,17 @@
         </div>
     </div>
 
+    <div id="hud-overlay">
+        <div id="math-panel" class="neon-panel">
+            <div>Math Score</div>
+            <div id="math-score">0</div>
+        </div>
+        <div id="word-panel" class="neon-panel">
+            <div>Word Score</div>
+            <div id="word-score">0</div>
+        </div>
+    </div>
+
     <div id="top-center">
         <div id="star-left" class="star-box">
             <div class="star-shape">★</div>
@@ -442,17 +453,21 @@
             busGroup = new THREE.Group();
             scene.add(busGroup);
 
-            // Neon Bus Sprite (asset-free)
-            const busCanvas = document.createElement('canvas');
-            busCanvas.width = 256;
-            busCanvas.height = 128;
-            const busCtx = busCanvas.getContext('2d');
-            drawNeonBus(busCtx);
-            const busTexture = new THREE.CanvasTexture(busCanvas);
-            const busMaterial = new THREE.SpriteMaterial({ map: busTexture, transparent: true });
-            const busSprite = new THREE.Sprite(busMaterial);
-            busSprite.scale.set(2.2, 1.1, 1);
-            busGroup.add(busSprite);
+            // Eva Sprite
+            const loader = new THREE.TextureLoader();
+            loader.load(
+                'eva.png',
+                (tex) => {
+                    const mat = new THREE.SpriteMaterial({ map: tex });
+                    const sprite = new THREE.Sprite(mat);
+                    sprite.scale.set(1.5, 1.5, 1);
+                    busGroup.add(sprite);
+                },
+                undefined,
+                () => {
+                    console.warn('Eva sprite failed to load: eva.png');
+                }
+            );
 
             // Wand Tip (Invisible target for sparkles)
             wandTip = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({ visible: false }));
@@ -467,8 +482,21 @@
             window.addEventListener('resize', onResize);
             window.addEventListener('pointerdown', onTap);
             const splash = document.getElementById('splash-screen');
-            document.getElementById('start-btn').addEventListener('click', startGame);
-            splash.addEventListener('pointerdown', startGame);
+            const startBtn = document.getElementById('start-btn');
+            if (splash) {
+                splash.addEventListener('click', startGame, { once: true });
+                splash.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    startGame();
+                }, { once: true });
+            }
+            if (startBtn) {
+                startBtn.addEventListener('click', startGame, { once: true });
+                startBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    startGame();
+                }, { once: true });
+            }
             
             animate();
         }
@@ -536,7 +564,17 @@
 
         function startGame() {
             if (state.playing) return;
-            document.getElementById('splash-screen').style.display = 'none';
+            const splash = document.getElementById('splash-screen');
+            const hud = document.getElementById('hud-overlay');
+            const startBtn = document.getElementById('start-btn');
+            if (splash) splash.style.display = 'none';
+            if (hud) {
+                hud.style.display = 'flex';
+                hud.style.zIndex = '100';
+            }
+            if (startBtn) {
+                startBtn.removeEventListener('click', startGame);
+            }
             state.playing = true;
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen().catch(() => {});
